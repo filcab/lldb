@@ -306,6 +306,114 @@ private:
 
 };
 
+#pragma mark CommandObjectTargetFix
+//----------------------------------------------------------------------
+// "target fix"
+//----------------------------------------------------------------------
+
+class CommandObjectTargetFix : public CommandObjectParsed
+{
+public:
+    CommandObjectTargetFix (CommandInterpreter &interpreter) :
+        CommandObjectParsed (interpreter,
+                             "target fix",
+                             "Load a dynamic library and patch its functions on the running program.",
+                             NULL,
+                             eFlagProcessMustBeLaunched | eFlagProcessMustBePaused),
+        m_option_group (interpreter),
+        m_library_file (LLDB_OPT_SET_1, false, "core", 'c', 0, eArgTypeFilename, "Full path to a library file to load for this target.")
+    {
+        CommandArgumentEntry arg;
+        CommandArgumentData file_arg;
+
+        // Define the first (and only) variant of this arg.
+        file_arg.arg_type = eArgTypeFilename;
+        file_arg.arg_repetition = eArgRepeatPlain;
+
+        // There is only one variant this argument could be; put it into the argument entry.
+        arg.push_back (file_arg);
+
+        // Push the data for the first argument into the m_arguments vector.
+        m_arguments.push_back (arg);
+
+        m_option_group.Append (&m_library_file, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
+        m_option_group.Finalize();
+    }
+
+    virtual
+    ~CommandObjectTarget()
+    {
+    }
+
+    Options *
+    GetOptions ()
+    {
+        return &m_option_group;
+    }
+
+    int
+    HandleArgumentCompletion (Args &input,
+                              int &cursor_index,
+                              int &cursor_char_position,
+                              OptionElementVector &opt_element_vector,
+                              int match_start_point,
+                              int max_return_elements,
+                              bool &word_complete,
+                              StringList &matches)
+    {
+        std::string completion_str (input.GetArgumentAtIndex(cursor_index));
+        completion_str.erase (cursor_char_position);
+
+        CommandCompletions::InvokeCommonCompletionCallbacks (m_interpreter,
+                                                             CommandCompletions::eDiskFileCompletion,
+                                                             completion_str.c_str(),
+                                                             match_start_point,
+                                                             max_return_elements,
+                                                             NULL,
+                                                             word_complete,
+                                                             matches);
+        return matches.GetSize();
+    }
+
+protected:
+    virtual bool
+    DoExecute (Args& args, CommandReturnObject &result)
+    {
+//        const uint32_t argc = command.GetArgumentCount();
+
+//        for (uint32_t i=0; i<argc; ++i)
+//        {
+        Process *process = m_interpreter.GetExecutionContext().GetProcessPtr();
+        Error error;
+        const char *image_path = command.GetArgumentAtIndex(i);
+        FileSpec image_spec (image_path, false);
+
+        process->GetTarget().GetPlatform()->ResolveRemotePath(image_spec, image_spec);
+        result.AppendMessageWithFormat ("Loading \"%s\"... ", image_path);
+        uint32_t image_token = process->LoadImage(image_spec, error);
+        if (image_token != LLDB_INVALID_IMAGE_TOKEN)
+        {
+            result.AppendMessageWithFormat ("ok\nImage %u loaded.\n", image_token);
+            result.SetStatus (eReturnStatusSuccessFinishResult);
+        }
+        else
+        {
+            result.AppendErrorWithFormat ("failed to load '%s': %s", image_path, error.AsCString());
+            result.SetStatus (eReturnStatusFailed);
+        }
+//        }
+
+        // For now assume remote_path == local_path
+        Module module(image_spec, process->GetTarget().GetArchitecture();
+
+        return result.Succeeded();
+    }
+
+private:
+    OptionGroupOptions m_option_group;
+    OptionGroupFile m_library_file;
+}
+
 #pragma mark CommandObjectTargetList
 
 //----------------------------------------------------------------------
@@ -5014,6 +5122,7 @@ CommandObjectMultiwordTarget::CommandObjectMultiwordTarget (CommandInterpreter &
     
     LoadSubCommand ("create",    CommandObjectSP (new CommandObjectTargetCreate (interpreter)));
     LoadSubCommand ("delete",    CommandObjectSP (new CommandObjectTargetDelete (interpreter)));
+    LoadSubCommand ("fix",       CommandObjectSP (new CommandObjectTargetFix    (interpreter)));
     LoadSubCommand ("list",      CommandObjectSP (new CommandObjectTargetList   (interpreter)));
     LoadSubCommand ("select",    CommandObjectSP (new CommandObjectTargetSelect (interpreter)));
     LoadSubCommand ("stop-hook", CommandObjectSP (new CommandObjectMultiwordTargetStopHooks (interpreter)));
