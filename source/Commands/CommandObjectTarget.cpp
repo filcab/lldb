@@ -384,11 +384,12 @@ protected:
 //        for (uint32_t i=0; i<argc; ++i)
 //        {
         Process *process = m_interpreter.GetExecutionContext().GetProcessPtr();
+        Target &target = process->GetTarget();
         Error error;
-        const char *image_path = command.GetArgumentAtIndex(i);
+        const char *image_path = args.GetArgumentAtIndex(0); // Was [i], for the loop above.
         FileSpec image_spec (image_path, false);
 
-        process->GetTarget().GetPlatform()->ResolveRemotePath(image_spec, image_spec);
+        target.GetPlatform()->ResolveRemotePath(image_spec, image_spec);
         result.AppendMessageWithFormat ("Loading \"%s\"... ", image_path);
         uint32_t image_token = process->LoadImage(image_spec, error);
         if (image_token != LLDB_INVALID_IMAGE_TOKEN)
@@ -403,8 +404,52 @@ protected:
         }
 //        }
 
-        // For now assume remote_path == local_path
-        Module module(image_spec, process->GetTarget().GetArchitecture();
+        ModuleSP module_sp; //= new ModuleSP(image_spec, target.GetArchitecture());
+        ModuleList &images = target.GetImages();
+        size_t images_n = images.GetSize();
+        for (size_t idx = 0; idx < images_n; ++idx) {
+            ModuleSP m_sp = images.GetModuleAtIndex(idx);
+            // For now assume remote_path == local_path
+            if (m_sp->GetFileSpec() == image_spec) {
+                module_sp = m_sp;
+                break;
+            }
+        }
+
+        assert(target.GetImages().GetIndexForModule(module_sp.get()) != LLDB_INVALID_INDEX32);
+
+        Symtab *syms = module_sp->GetObjectFile()->GetSymtab();
+        size_t n_syms = syms->GetNumSymbols();
+        Mutex::Locker locker (images.GetMutex());
+
+        for (size_t sym_idx = 0; sym_idx < n_syms; ++sym_idx) {
+            const Symbol *new_sym = syms->SymbolAtIndex(sym_idx);
+            // Check for other interesting types!
+            if (new_sym->GetType() == eSymbolTypeCode) {
+                const ConstString &sym_name = new_sym->GetName();
+
+                if (new_sym->GetType() != eSymbolTypeCode)
+                    continue;
+
+                size_t n_modules = images.GetSize();
+                for (size_t mod_idx = 0; mod_idx < n_modules; ++mod_idx) {
+                    ModuleSP mod = images.GetModuleAtIndex(mod_idx);
+                    Symtab *symtab = mod->GetObjectFile()->GetSymtab();
+                    uint32_t start_idx = 0;
+                    Symbol *sym = symtab->FindSymbolWithType(eSymbolTypeTrampoline, Symtab::eDebugAny, Symtab::eVisibilityAny, start_idx);
+                    if (sym && sym->GetName() == sym_name) {
+                        result.AppendMessage("Found a symbol:");
+                        sym->Dump(&result.GetOutputStream(), &target, start_idx);
+                        Address &addr(sym->GetAddress());
+                        process->GetABI()->ChangeTrampolineTo(addr.GetLoadAddress(&target), new_sym->GetAddress().GetLoadAddress(&target));
+                    }
+                }
+
+//                for (size_t trampoline_idx = 0; trampoline_idx < found; ++trampoline_idx) {
+//
+//                }
+            }
+        }
 
         return result.Succeeded();
     }
@@ -412,7 +457,7 @@ protected:
 private:
     OptionGroupOptions m_option_group;
     OptionGroupFile m_library_file;
-}
+};
 
 #pragma mark CommandObjectTargetList
 
