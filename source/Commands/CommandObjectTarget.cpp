@@ -321,7 +321,7 @@ public:
                              NULL,
                              eFlagProcessMustBeLaunched | eFlagProcessMustBePaused),
         m_option_group (interpreter),
-        m_library_file (LLDB_OPT_SET_1, false, "core", 'c', 0, eArgTypeFilename, "Full path to a library file to load for this target.")
+        m_library_file (LLDB_OPT_SET_1, false, "fixed-library", 'c', 0, eArgTypeFilename, "Full path to a library file to fix functions in this target.")
     {
         CommandArgumentEntry arg;
         CommandArgumentData file_arg;
@@ -341,7 +341,7 @@ public:
     }
 
     virtual
-    ~CommandObjectTarget()
+    ~CommandObjectTargetFix()
     {
     }
 
