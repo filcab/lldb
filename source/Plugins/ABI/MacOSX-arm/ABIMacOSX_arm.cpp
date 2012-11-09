@@ -587,7 +587,7 @@ ABIMacOSX_arm::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObj
     return error;
 }
 
-bool
+Error
 ABIMacOSX_arm::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target)
 {
     assert("Not implemented");

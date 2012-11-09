@@ -55,7 +55,7 @@ public:
     virtual Error
     SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObjectSP &new_value) = 0;
 
-    virtual bool
+    virtual Error
     ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target) = 0;
 
 protected:
