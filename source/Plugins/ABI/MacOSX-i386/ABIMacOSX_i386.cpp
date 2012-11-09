@@ -767,6 +767,12 @@ ABIMacOSX_i386::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
     return error;
 }
 
+bool
+ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target)
+{
+    assert("Not implemented");
+}
+
 ValueObjectSP
 ABIMacOSX_i386::GetReturnValueObjectImpl (Thread &thread,
                                 ClangASTType &ast_type) const

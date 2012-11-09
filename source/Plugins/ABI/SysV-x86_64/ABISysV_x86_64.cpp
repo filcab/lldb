@@ -643,6 +643,17 @@ ABISysV_x86_64::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
 }
 
 
+bool
+ABISysV_x86_64::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target)
+{
+    // Jump to address
+//    static char start_of_trampoline[] = { char(0xff), char(0x25) };
+
+    assert("Not implemented");
+    return false;
+}
+
+
 ValueObjectSP
 ABISysV_x86_64::GetReturnValueObjectSimple (Thread &thread,
                                 ClangASTType &ast_type) const

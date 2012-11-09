@@ -55,7 +55,10 @@ public:
     virtual Error
     SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObjectSP &new_value) = 0;
 
-protected:    
+    virtual bool
+    ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target) = 0;
+
+protected:
     // This is the method the ABI will call to actually calculate the return value.
     // Don't put it in a persistant value object, that will be done by the ABI::GetReturnValueObject.
     virtual lldb::ValueObjectSP

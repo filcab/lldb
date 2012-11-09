@@ -44,6 +44,9 @@ public:
     virtual lldb_private::Error
     SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObjectSP &new_value);
 
+    virtual bool
+    ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target);
+
 protected:
     virtual lldb::ValueObjectSP
     GetReturnValueObjectImpl (lldb_private::Thread &thread,
