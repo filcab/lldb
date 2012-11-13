@@ -724,7 +724,7 @@ public:
     CommandObjectTargetVariable (CommandInterpreter &interpreter) :
         CommandObjectParsed (interpreter,
                              "target variable",
-                             "Read global variable(s) prior to running your binary.",
+                             "Read global variable(s) prior to, or while running your binary.",
                              NULL,
                              0),
         m_option_group (interpreter),
@@ -2408,7 +2408,7 @@ protected:
             if (command.GetArgumentCount() == 0)
             {
                 // Dump all sections for all modules images
-                ModuleList &target_modules = target->GetImages();
+                const ModuleList &target_modules = target->GetImages();
                 Mutex::Locker modules_locker (target_modules.GetMutex());
                 const uint32_t num_modules = target_modules.GetSize();
                 if (num_modules > 0)
@@ -2521,7 +2521,7 @@ protected:
                 {
                     FileSpec file_spec(arg_cstr, false);
                     
-                    ModuleList &target_modules = target->GetImages();
+                    const ModuleList &target_modules = target->GetImages();
                     Mutex::Locker modules_locker(target_modules.GetMutex());
                     const uint32_t num_modules = target_modules.GetSize();
                     if (num_modules > 0)
@@ -3093,7 +3093,7 @@ protected:
             Mutex::Locker locker;      // This locker will be locked on the mutex in module_list_ptr if it is non-NULL.
                                        // Otherwise it will lock the AllocationModuleCollectionMutex when accessing
                                        // the global module list directly.
-            ModuleList *module_list_ptr = NULL;
+            const ModuleList *module_list_ptr = NULL;
             const size_t argc = command.GetArgumentCount();
             if (argc == 0)
             {
@@ -3978,7 +3978,7 @@ protected:
                 
                 // Dump all sections for all other modules
                 
-                ModuleList &target_modules = target->GetImages();
+                const ModuleList &target_modules = target->GetImages();
                 Mutex::Locker modules_locker(target_modules.GetMutex());
                 const uint32_t num_modules = target_modules.GetSize();
                 if (num_modules > 0)
