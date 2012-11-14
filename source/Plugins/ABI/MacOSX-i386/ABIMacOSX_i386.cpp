@@ -768,7 +768,7 @@ ABIMacOSX_i386::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
 }
 
 Error
-ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target)
+ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process)
 {
     assert("Not implemented");
 }

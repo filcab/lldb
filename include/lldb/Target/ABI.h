@@ -55,8 +55,9 @@ public:
     virtual Error
     SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObjectSP &new_value) = 0;
 
+    // Change a dyld trampoline to point to a new address
     virtual Error
-    ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target) = 0;
+    ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process) = 0;
 
 protected:
     // This is the method the ABI will call to actually calculate the return value.

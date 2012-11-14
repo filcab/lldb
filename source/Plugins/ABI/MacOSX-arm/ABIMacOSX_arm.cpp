@@ -588,9 +588,13 @@ ABIMacOSX_arm::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObj
 }
 
 Error
-ABIMacOSX_arm::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target)
+ABIMacOSX_arm::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process)
 {
+    Error error;
+    error.SetErrorString("Not implemented");
+
     assert("Not implemented");
+    return error;
 }
 
 bool
