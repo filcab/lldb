@@ -441,7 +441,7 @@ protected:
                         result.AppendMessage("Found a symbol:");
                         sym->Dump(&result.GetOutputStream(), &target, start_idx);
                         Address &addr(sym->GetAddress());
-                        process->GetABI()->ChangeTrampolineTo(addr.GetLoadAddress(&target), new_sym->GetAddress().GetLoadAddress(&target));
+                        process->GetABI()->ChangeTrampolineTo(addr.GetLoadAddress(&target), new_sym->GetAddress().GetLoadAddress(&target), *process);
                     }
                 }
 
