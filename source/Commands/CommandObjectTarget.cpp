@@ -319,9 +319,9 @@ public:
                              "target fix",
                              "Load a dynamic library and patch its functions on the running program.",
                              NULL,
-                             eFlagProcessMustBeLaunched | eFlagProcessMustBePaused),
-        m_option_group (interpreter),
-        m_library_file (LLDB_OPT_SET_1, false, "fixed-library", 'c', 0, eArgTypeFilename, "Full path to a library file to fix functions in this target.")
+                             eFlagProcessMustBeLaunched | eFlagProcessMustBePaused)
+//        m_option_group (interpreter),
+//        m_library_file (LLDB_OPT_SET_1, false, "fixed-library", 'c', 0, eArgTypeFilename, "Full path to a library file to fix functions in this target.")
     {
         CommandArgumentEntry arg;
         CommandArgumentData file_arg;
@@ -336,8 +336,8 @@ public:
         // Push the data for the first argument into the m_arguments vector.
         m_arguments.push_back (arg);
 
-        m_option_group.Append (&m_library_file, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
-        m_option_group.Finalize();
+//        m_option_group.Append (&m_library_file, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
+//        m_option_group.Finalize();
     }
 
     virtual
@@ -345,11 +345,11 @@ public:
     {
     }
 
-    Options *
-    GetOptions ()
-    {
-        return &m_option_group;
-    }
+//    Options *
+//    GetOptions ()
+//    {
+//        return &m_option_group;
+//    }
 
     int
     HandleArgumentCompletion (Args &input,
@@ -379,10 +379,6 @@ protected:
     virtual bool
     DoExecute (Args& args, CommandReturnObject &result)
     {
-//        const uint32_t argc = command.GetArgumentCount();
-
-//        for (uint32_t i=0; i<argc; ++i)
-//        {
         Process *process = m_interpreter.GetExecutionContext().GetProcessPtr();
         Target &target = process->GetTarget();
         Error error;
@@ -402,7 +398,6 @@ protected:
             result.AppendErrorWithFormat ("failed to load '%s': %s", image_path, error.AsCString());
             result.SetStatus (eReturnStatusFailed);
         }
-//        }
 
         ModuleSP module_sp; //= new ModuleSP(image_spec, target.GetArchitecture());
         ModuleList &images = target.GetImages();
@@ -454,9 +449,9 @@ protected:
         return result.Succeeded();
     }
 
-private:
-    OptionGroupOptions m_option_group;
-    OptionGroupFile m_library_file;
+//private:
+//    OptionGroupOptions m_option_group;
+//    OptionGroupFile m_library_file;
 };
 
 #pragma mark CommandObjectTargetList
