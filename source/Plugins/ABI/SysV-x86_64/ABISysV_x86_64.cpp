@@ -647,7 +647,9 @@ Error
 ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Process &process)
 {
     Error error;
-    LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS | LIBLLDB_LOG_VERBOSE));
+    LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_VERBOSE));
+    if (log)
+        log->Printf("ABI: Changing trampoline at 0x%llx to 0x%llx", trampoline_addr, new_target);
 
     // jmp *($rip+imm32)
     static const char start_of_trampoline[] = { char(0xff), char(0x25) };
@@ -659,12 +661,12 @@ ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Pr
         return error;
 
     if (memcmp(insts, start_of_trampoline, sizeof(start_of_trampoline))) {
-        error.SetErrorStringWithFormat("Code at address %llx is not a trampoline.", trampoline_addr);
+        error.SetErrorStringWithFormat("Code at address 0x%llx is not a trampoline.", trampoline_addr);
         return error;
     }
 
     Scalar trampoline_dst_offset;
-    size_t size = process.ReadScalarIntegerFromMemory(trampoline_addr, /* imm32 */4, true, trampoline_dst_offset, error);
+    size_t size = process.ReadScalarIntegerFromMemory(trampoline_addr + sizeof(start_of_trampoline), /* imm32 */4, true, trampoline_dst_offset, error);
     if (error.Fail())
         return error;
     if (size != 4) {
@@ -673,7 +675,7 @@ ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Pr
     }
 
     if (log)
-        log->Printf("Trampoline target location: %llx", trampoline_dst_offset.GetRawBits64(0xffffffffffffffff));
+        log->Printf("ABI: Trampoline target offset: 0x%llx", trampoline_dst_offset.GetRawBits64(0xffffffffffffffff));
 
     addr_t trampoline_dst_addr = trampoline_addr + trampoline_size + trampoline_dst_offset.GetRawBits64(0xffffffffffffffff);
     addr_t old_trampoline_dst = process.ReadPointerFromMemory(trampoline_dst_addr, error);
@@ -681,14 +683,14 @@ ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Pr
         return error;
 
     if (log)
-        log->Printf("Current trampoline destiination: %llx", old_trampoline_dst);
+        log->Printf("ABI: Current trampoline destination: 0x%llx", old_trampoline_dst);
 
     process.WritePointerToMemory(trampoline_dst_addr, new_target, error);
     if (error.Fail())
         return error;
 
     if (log)
-        log->Printf("Trampoline at %llx now points to %llx", trampoline_addr, new_target);
+        log->Printf("ABI: Trampoline at %llx now points to 0x%llx", trampoline_addr, new_target);
 
     return error;
 }

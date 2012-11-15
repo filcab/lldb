@@ -11,6 +11,7 @@
 
 #include "lldb/Core/ConstString.h"
 #include "lldb/Core/Error.h"
+#include "lldb/Core/Log.h"
 #include "lldb/Core/Module.h"
 #include "lldb/Core/PluginManager.h"
 #include "lldb/Core/RegisterValue.h"
@@ -770,7 +771,53 @@ ABIMacOSX_i386::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
 Error
 ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process)
 {
-    assert("Not implemented");
+    Error error;
+    LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_VERBOSE));
+    if (log)
+        log->Printf("ABI: Changing trampoline at 0x%llx to 0x%llx", trampoline_addr, new_target);
+
+    // jmp *(imm32)
+    static const char start_of_trampoline[] = { char(0xff), char(0x25) };
+    const size_t trampoline_size = 6;
+
+    char insts[trampoline_size];
+    process.ReadMemory(trampoline_addr, insts, sizeof(insts), error);
+    if (error.Fail())
+        return error;
+
+    if (memcmp(insts, start_of_trampoline, sizeof(start_of_trampoline))) {
+        error.SetErrorStringWithFormat("Code at address 0x%llx is not a trampoline.", trampoline_addr);
+        return error;
+    }
+
+    Scalar trampoline_dst;
+    size_t size = process.ReadScalarIntegerFromMemory(trampoline_addr + sizeof(start_of_trampoline), /* imm32 */4, true, trampoline_dst, error);
+    if (error.Fail())
+        return error;
+    if (size != 4) {
+        error.SetErrorString("Couldn't read 4 bytes from trampoline.");
+        return error;
+    }
+
+    if (log)
+        log->Printf("ABI: Trampoline target location: 0x%llx", trampoline_dst.GetRawBits64(0xffffffffffffffff));
+
+    addr_t trampoline_dst_addr = trampoline_dst.GetRawBits64(0xffffffffffffffff);
+    addr_t old_trampoline_dst = process.ReadPointerFromMemory(trampoline_dst_addr, error);
+    if (error.Fail())
+        return error;
+
+    if (log)
+        log->Printf("ABI: Current trampoline destination: 0x%llx", old_trampoline_dst);
+
+    process.WritePointerToMemory(trampoline_dst_addr, new_target, error);
+    if (error.Fail())
+        return error;
+
+    if (log)
+        log->Printf("ABI: Trampoline at %llx now points to 0x%llx", trampoline_addr, new_target);
+
+    return error;
 }
 
 ValueObjectSP
