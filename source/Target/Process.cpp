@@ -953,6 +953,8 @@ Process::Process(Target &target, Listener &listener) :
     m_stdio_communication_mutex (Mutex::eMutexTypeRecursive),
     m_stdout_data (),
     m_stderr_data (),
+    m_profile_data_comm_mutex (Mutex::eMutexTypeRecursive),
+    m_profile_data (),
     m_memory_cache (*this),
     m_allocated_memory_cache (*this),
     m_should_detach (false),
@@ -972,6 +974,7 @@ Process::Process(Target &target, Listener &listener) :
     SetEventName (eBroadcastBitInterrupt, "interrupt");
     SetEventName (eBroadcastBitSTDOUT, "stdout-available");
     SetEventName (eBroadcastBitSTDERR, "stderr-available");
+    SetEventName (eBroadcastBitProfileData, "profile-data-available");
     
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlStop  , "control-stop"  );
     m_private_state_control_broadcaster.SetEventName (eBroadcastInternalStateControlPause , "control-pause" );
@@ -981,7 +984,8 @@ Process::Process(Target &target, Listener &listener) :
                                       eBroadcastBitStateChanged |
                                       eBroadcastBitInterrupt |
                                       eBroadcastBitSTDOUT |
-                                      eBroadcastBitSTDERR);
+                                      eBroadcastBitSTDERR |
+                                      eBroadcastBitProfileData);
 
     m_private_state_listener.StartListeningForEvents(&m_private_state_broadcaster,
                                                      eBroadcastBitStateChanged |
@@ -2546,6 +2550,7 @@ Process::DeallocateMemory (addr_t ptr)
     return error;
 }
 
+
 ModuleSP
 Process::ReadModuleFromMemory (const FileSpec& file_spec, 
                                lldb::addr_t header_addr, 
@@ -3999,6 +4004,40 @@ Process::AppendSTDERR (const char * s, size_t len)
     BroadcastEventIfUnique (eBroadcastBitSTDERR, new ProcessEventData (shared_from_this(), GetState()));
 }
 
+void
+Process::BroadcastAsyncProfileData(const char *s, size_t len)
+{
+    Mutex::Locker locker (m_profile_data_comm_mutex);
+    m_profile_data.append (s, len);
+    BroadcastEventIfUnique (eBroadcastBitProfileData, new ProcessEventData (shared_from_this(), GetState()));
+}
+
+size_t
+Process::GetAsyncProfileData (char *buf, size_t buf_size, Error &error)
+{
+    Mutex::Locker locker(m_profile_data_comm_mutex);
+    size_t bytes_available = m_profile_data.size();
+    if (bytes_available > 0)
+    {
+        LogSP log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
+        if (log)
+            log->Printf ("Process::GetProfileData (buf = %p, size = %llu)", buf, (uint64_t)buf_size);
+        if (bytes_available > buf_size)
+        {
+            memcpy(buf, m_profile_data.c_str(), buf_size);
+            m_profile_data.erase(0, buf_size);
+            bytes_available = buf_size;
+        }
+        else
+        {
+            memcpy(buf, m_profile_data.c_str(), bytes_available);
+            m_profile_data.clear();
+        }
+    }
+    return bytes_available;
+}
+
+
 //------------------------------------------------------------------
 // Process STDIO
 //------------------------------------------------------------------
@@ -4280,7 +4319,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         // The simplest thing to do is to spin up a temporary thread to handle private state thread events while
         // we are fielding public events here.
         if (log)
-			log->Printf ("Running thread plan on private state thread, spinning up another state thread to handle the events.");
+            log->Printf ("Running thread plan on private state thread, spinning up another state thread to handle the events.");
             
 
         backup_private_state_thread = m_private_state_thread;
