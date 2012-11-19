@@ -419,13 +419,12 @@ protected:
 
         for (size_t sym_idx = 0; sym_idx < n_syms; ++sym_idx) {
             const Symbol *new_sym = syms->SymbolAtIndex(sym_idx);
-            // Check for other interesting types!
+            // Maybe check for other interesting types!
             if (new_sym->GetType() == eSymbolTypeCode) {
                 const ConstString &sym_name = new_sym->GetName();
 
-                if (new_sym->GetType() != eSymbolTypeCode)
-                    continue;
-
+                // ModuleList.Find…AndType(…, eSymbolTypeTrampoline) is not working now
+                // Iterate all the Modules' Symtabs to search for trampolines to this symbol.
                 size_t n_modules = images.GetSize();
                 for (size_t mod_idx = 0; mod_idx < n_modules; ++mod_idx) {
                     ModuleSP mod = images.GetModuleAtIndex(mod_idx);
@@ -440,9 +439,11 @@ protected:
                     }
                 }
 
-//                for (size_t trampoline_idx = 0; trampoline_idx < found; ++trampoline_idx) {
-//
-//                }
+                // Change the original function to be another trampoline.
+                // Only if there is no thread using it!
+
+                // Use Greg Clayton's heap module to find pointers to the function?
+                // ^^ This may be overkill.
             }
         }
 
