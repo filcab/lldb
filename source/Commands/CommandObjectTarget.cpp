@@ -415,7 +415,12 @@ protected:
 
         Symtab *syms = module_sp->GetObjectFile()->GetSymtab();
         size_t n_syms = syms->GetNumSymbols();
-        Mutex::Locker locker (images.GetMutex());
+        // We want to block _ANY_ code from running, since we will be looking at the threads' IP registers.
+        // But we can't use a write lock since we will be writing to
+        // memory further down.
+        ReadWriteLock::ReadLocker locker(process->GetRunLock());
+        ThreadList &threads = process->GetThreadList();
+        ABISP abi = process->GetABI();
 
         for (size_t sym_idx = 0; sym_idx < n_syms; ++sym_idx) {
             const Symbol *new_sym = syms->SymbolAtIndex(sym_idx);
@@ -432,18 +437,37 @@ protected:
                     uint32_t start_idx = 0;
                     Symbol *sym = symtab->FindSymbolWithType(eSymbolTypeTrampoline, Symtab::eDebugAny, Symtab::eVisibilityAny, start_idx);
                     if (sym && sym->GetName() == sym_name) {
+                        addr_t old_sym_addr = sym->GetAddress().GetLoadAddress(&target);
+                        addr_t new_sym_addr = new_sym->GetAddress().GetLoadAddress(&target);
+
                         result.AppendMessage("Found a symbol:");
                         sym->Dump(&result.GetOutputStream(), &target, start_idx);
-                        Address &addr(sym->GetAddress());
-                        process->GetABI()->ChangeTrampolineTo(addr.GetLoadAddress(&target), new_sym->GetAddress().GetLoadAddress(&target), *process);
+
+                        abi->ChangeTrampoline(old_sym_addr, new_sym_addr, *process);
+
+                        // Change the original function to be another trampoline.
+                        // Only if there is no thread using it!
+                        size_t trampoline_size = abi->GetTrampolineSize();
+                        size_t n_threads = threads.GetSize();
+                        bool can_replace = true;
+                        for (size_t idx = 0; idx < n_threads; ++idx) {
+                            ThreadSP t_sp = threads.GetThreadAtIndex(idx);
+                            StackFrameSP frame_sp = t_sp->GetStackFrameAtIndex(0);
+                            addr_t frame_addr = frame_sp->GetFrameCodeAddress().GetLoadAddress(&target);
+                            if (frame_addr > old_sym_addr && frame_addr < old_sym_addr + trampoline_size) {
+                                // We can't overwrite currently executing code. Bail out!
+                                result.AppendMessageWithFormat("Can't overwrite previous code with a trampoline due to thread %llx.", t_sp->GetID());
+                                can_replace = false;
+                                break;
+                            }
+                        }
+                        if (can_replace)
+                            abi->CreateTrampoline(old_sym_addr, new_sym_addr, *process);
                     }
                 }
 
-                // Change the original function to be another trampoline.
-                // Only if there is no thread using it!
-
                 // Use Greg Clayton's heap module to find pointers to the function?
-                // ^^ This may be overkill.
+                // ^^ This may be overkill. Use an option.
             }
         }
 
