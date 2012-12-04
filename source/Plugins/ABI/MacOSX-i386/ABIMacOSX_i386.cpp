@@ -769,7 +769,7 @@ ABIMacOSX_i386::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
 }
 
 Error
-ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process)
+ABIMacOSX_i386::ChangeTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process)
 {
     Error error;
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_VERBOSE));
@@ -816,6 +816,45 @@ ABIMacOSX_i386::ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t ne
 
     if (log)
         log->Printf("ABI: Trampoline at %llx now points to 0x%llx", trampoline_addr, new_target);
+
+    return error;
+}
+
+size_t
+ABIMacOSX_i386::GetTrampolineSize(void)
+{
+    // jmp (near, absolute) imm32: FF 25 .. .. .. ..
+    // .. .. .. .. == address right after this instr
+    // final address: XX XX XX XX
+    return 10;
+}
+
+Error
+ABIMacOSX_i386::CreateTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t dst_addr, lldb_private::Process &process)
+{
+    uint8_t jmp_opcode_bytes[] = { 0xff, 0x25 };
+    Value opcode(jmp_opcode_bytes, sizeof(jmp_opcode_bytes));
+    Scalar trampoline_dst_addr(trampoline_addr + 2 + 4);
+    Scalar trampoline_dst(dst_addr);
+
+    Error error;
+    process.WriteMemory(trampoline_addr, jmp_opcode_bytes, sizeof(jmp_opcode_bytes), error);
+    if (error.Fail()) {
+        error.SetErrorStringWithFormat("Couldn't write trampoline jump opcode to address 0x%llx: %s", trampoline_addr, error.AsCString());
+        return error;
+    }
+
+    process.WriteScalarToMemory(trampoline_addr + sizeof(jmp_opcode_bytes), trampoline_dst_addr, 4, error);
+    if (error.Fail()) {
+        error.SetErrorStringWithFormat("Couldn't write destination address to address 0x%llx: %s", trampoline_addr + sizeof(jmp_opcode_bytes), error.AsCString());
+        return error;
+    }
+
+    process.WriteScalarToMemory(trampoline_dst_addr.GetRawBits64(0x0), trampoline_dst, 4, error);
+    if (error.Fail()) {
+        error.SetErrorStringWithFormat("Couldn't write destination to destination address 0x%llx: %s", trampoline_dst_addr.GetRawBits64(0x0), error.AsCString());
+        return error;
+    }
 
     return error;
 }

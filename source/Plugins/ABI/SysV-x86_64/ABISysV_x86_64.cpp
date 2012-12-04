@@ -644,7 +644,7 @@ ABISysV_x86_64::SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueOb
 
 
 Error
-ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Process &process)
+ABISysV_x86_64::ChangeTrampoline(addr_t trampoline_addr, addr_t new_target, Process &process)
 {
     Error error;
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_VERBOSE));
@@ -693,6 +693,21 @@ ABISysV_x86_64::ChangeTrampolineTo(addr_t trampoline_addr, addr_t new_target, Pr
         log->Printf("ABI: Trampoline at %llx now points to 0x%llx", trampoline_addr, new_target);
 
     return error;
+}
+
+
+size_t
+ABISysV_x86_64::GetTrampolineSize(void)
+{
+    // Check Intel's manual for jumps.
+    // Should we also add a ud2 opcode?
+    return 6;
+}
+
+Error
+ABISysV_x86_64::CreateTrampoline(addr_t trampoline_addr, addr_t dst_addr, Process &process)
+{
+    return Error();
 }
 
 

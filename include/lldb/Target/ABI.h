@@ -56,8 +56,16 @@ public:
     SetReturnValueObject(lldb::StackFrameSP &frame_sp, lldb::ValueObjectSP &new_value) = 0;
 
     // Change a dyld trampoline to point to a new address
-    virtual Error
-    ChangeTrampolineTo(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process) = 0;
+    virtual lldb_private::Error
+    ChangeTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t new_target, Process &process) = 0;
+
+    virtual size_t
+    GetTrampolineSize(void) = 0;
+
+    // Create a trampoline at trampoline_addr that will set the PC to
+    // the address stored at dst_addr.
+    virtual lldb_private::Error
+    CreateTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t dst_addr, lldb_private::Process &process) = 0;
 
 protected:
     // This is the method the ABI will call to actually calculate the return value.
