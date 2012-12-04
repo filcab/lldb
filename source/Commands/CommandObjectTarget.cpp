@@ -504,6 +504,160 @@ protected:
 //    OptionGroupFile m_library_file;
 };
 
+#pragma mark CommandObjectTargetFix
+//----------------------------------------------------------------------
+// "target fix"
+//----------------------------------------------------------------------
+
+class CommandObjectTargetFix : public CommandObjectParsed
+{
+public:
+    CommandObjectTargetFix (CommandInterpreter &interpreter) :
+        CommandObjectParsed (interpreter,
+                             "target fix",
+                             "Load a dynamic library and patch its functions on the running program.",
+                             NULL,
+                             eFlagProcessMustBeLaunched | eFlagProcessMustBePaused)
+//        m_option_group (interpreter),
+//        m_library_file (LLDB_OPT_SET_1, false, "fixed-library", 'c', 0, eArgTypeFilename, "Full path to a library file to fix functions in this target.")
+    {
+        CommandArgumentEntry arg;
+        CommandArgumentData file_arg;
+
+        // Define the first (and only) variant of this arg.
+        file_arg.arg_type = eArgTypeFilename;
+        file_arg.arg_repetition = eArgRepeatPlain;
+
+        // There is only one variant this argument could be; put it into the argument entry.
+        arg.push_back (file_arg);
+
+        // Push the data for the first argument into the m_arguments vector.
+        m_arguments.push_back (arg);
+
+//        m_option_group.Append (&m_library_file, LLDB_OPT_SET_ALL, LLDB_OPT_SET_1);
+//        m_option_group.Finalize();
+    }
+
+    virtual
+    ~CommandObjectTargetFix()
+    {
+    }
+
+//    Options *
+//    GetOptions ()
+//    {
+//        return &m_option_group;
+//    }
+
+    int
+    HandleArgumentCompletion (Args &input,
+                              int &cursor_index,
+                              int &cursor_char_position,
+                              OptionElementVector &opt_element_vector,
+                              int match_start_point,
+                              int max_return_elements,
+                              bool &word_complete,
+                              StringList &matches)
+    {
+        std::string completion_str (input.GetArgumentAtIndex(cursor_index));
+        completion_str.erase (cursor_char_position);
+
+        CommandCompletions::InvokeCommonCompletionCallbacks (m_interpreter,
+                                                             CommandCompletions::eDiskFileCompletion,
+                                                             completion_str.c_str(),
+                                                             match_start_point,
+                                                             max_return_elements,
+                                                             NULL,
+                                                             word_complete,
+                                                             matches);
+        return matches.GetSize();
+    }
+
+protected:
+    virtual bool
+    DoExecute (Args& args, CommandReturnObject &result)
+    {
+        Process *process = m_interpreter.GetExecutionContext().GetProcessPtr();
+        Target &target = process->GetTarget();
+        Error error;
+        const char *image_path = args.GetArgumentAtIndex(0); // Was [i], for the loop above.
+        FileSpec image_spec (image_path, false);
+
+        target.GetPlatform()->ResolveRemotePath(image_spec, image_spec);
+        result.AppendMessageWithFormat ("Loading \"%s\"... ", image_path);
+        uint32_t image_token = process->LoadImage(image_spec, error);
+        if (image_token != LLDB_INVALID_IMAGE_TOKEN)
+        {
+            result.AppendMessageWithFormat ("ok\nImage %u loaded.\n", image_token);
+            result.SetStatus (eReturnStatusSuccessFinishResult);
+        }
+        else
+        {
+            result.AppendErrorWithFormat ("failed to load '%s': %s", image_path, error.AsCString());
+            result.SetStatus (eReturnStatusFailed);
+        }
+
+        ModuleSP module_sp; //= new ModuleSP(image_spec, target.GetArchitecture());
+        ModuleList &images = target.GetImages();
+        size_t images_n = images.GetSize();
+        for (size_t idx = 0; idx < images_n; ++idx) {
+            ModuleSP m_sp = images.GetModuleAtIndex(idx);
+            // For now assume remote_path == local_path
+            if (m_sp->GetFileSpec() == image_spec) {
+                module_sp = m_sp;
+                break;
+            }
+        }
+
+        assert(target.GetImages().GetIndexForModule(module_sp.get()) != LLDB_INVALID_INDEX32);
+
+        Symtab *syms = module_sp->GetObjectFile()->GetSymtab();
+        size_t n_syms = syms->GetNumSymbols();
+        // We want to block _ANY_ code from running, since we will be looking at the threads' IP registers.
+        Mutex::Locker locker(process->GetTarget().GetAPIMutex());
+        ThreadList &threads = process->GetThreadList();
+
+        for (size_t sym_idx = 0; sym_idx < n_syms; ++sym_idx) {
+            const Symbol *new_sym = syms->SymbolAtIndex(sym_idx);
+            // Maybe check for other interesting types!
+            if (new_sym->GetType() == eSymbolTypeCode) {
+                const ConstString &sym_name = new_sym->GetName();
+
+                // ModuleList.Find…AndType(…, eSymbolTypeTrampoline) is not working now
+                // Iterate all the Modules' Symtabs to search for trampolines to this symbol.
+                size_t n_modules = images.GetSize();
+                for (size_t mod_idx = 0; mod_idx < n_modules; ++mod_idx) {
+                    ModuleSP mod = images.GetModuleAtIndex(mod_idx);
+                    Symtab *symtab = mod->GetObjectFile()->GetSymtab();
+                    uint32_t start_idx = 0;
+                    Symbol *sym = symtab->FindSymbolWithType(eSymbolTypeTrampoline, Symtab::eDebugAny, Symtab::eVisibilityAny, start_idx);
+                    if (sym && sym->GetName() == sym_name) {
+                        result.AppendMessage("Found a symbol:");
+                        sym->Dump(&result.GetOutputStream(), &target, start_idx);
+                        Address &addr(sym->GetAddress());
+                        process->GetABI()->ChangeTrampolineTo(addr.GetLoadAddress(&target), new_sym->GetAddress().GetLoadAddress(&target), *process);
+
+                        // Change the original function to be another trampoline.
+                        // Only if there is no thread using it!
+
+                    }
+                }
+
+
+
+                // Use Greg Clayton's heap module to find pointers to the function?
+                // ^^ This may be overkill. Use an option.
+            }
+        }
+
+        return result.Succeeded();
+    }
+
+//private:
+//    OptionGroupOptions m_option_group;
+//    OptionGroupFile m_library_file;
+};
+
 #pragma mark CommandObjectTargetList
 
 //----------------------------------------------------------------------
