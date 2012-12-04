@@ -93,8 +93,9 @@ static PropertyDefinition
 g_properties[] =
 {
     { "disable-memory-cache" , OptionValue::eTypeBoolean, false, DISABLE_MEM_CACHE_DEFAULT, NULL, NULL, "Disable reading and caching of memory in fixed-size units." },
-    { "extra-startup-command", OptionValue::eTypeArray  , false, OptionValue::eTypeString, NULL, NULL, "A list containing extra commands understood by the particular process plugin used." },
-    { "python-os-plugin-path", OptionValue::eTypeFileSpec, false, 0, NULL, NULL, "A path to a python OS plug-in module file that contains a OperatingSystemPlugIn class." },
+    { "extra-startup-command", OptionValue::eTypeArray  , false, OptionValue::eTypeString, NULL, NULL, "A list containing extra commands understood by the particular process plugin used.  "
+                                                                                                       "For instance, to turn on debugserver logging set this to \"QSetLogging:bitmask=LOG_DEFAULT;\"" },
+    { "python-os-plugin-path", OptionValue::eTypeFileSpec, false, true, NULL, NULL, "A path to a python OS plug-in module file that contains a OperatingSystemPlugIn class." },
     {  NULL                  , OptionValue::eTypeInvalid, false, 0, NULL, NULL, NULL  }
 };
 
@@ -166,10 +167,10 @@ ProcessInstanceInfo::Dump (Stream &s, Platform *platform) const
 {
     const char *cstr;
     if (m_pid != LLDB_INVALID_PROCESS_ID)       
-        s.Printf ("    pid = %llu\n", m_pid);
+        s.Printf ("    pid = %" PRIu64 "\n", m_pid);
 
     if (m_parent_pid != LLDB_INVALID_PROCESS_ID)
-        s.Printf (" parent = %llu\n", m_parent_pid);
+        s.Printf (" parent = %" PRIu64 "\n", m_parent_pid);
 
     if (m_executable)
     {
@@ -256,7 +257,7 @@ ProcessInstanceInfo::DumpAsTableRow (Stream &s, Platform *platform, bool show_ar
     if (m_pid != LLDB_INVALID_PROCESS_ID)
     {
         const char *cstr;
-        s.Printf ("%-6llu %-6llu ", m_pid, m_parent_pid);
+        s.Printf ("%-6" PRIu64 " %-6" PRIu64 " ", m_pid, m_parent_pid);
 
     
         if (verbose)
@@ -680,7 +681,7 @@ Error
 ProcessLaunchCommandOptions::SetOptionValue (uint32_t option_idx, const char *option_arg)
 {
     Error error;
-    char short_option = (char) m_getopt_table[option_idx].val;
+    const int short_option = m_getopt_table[option_idx].val;
     
     switch (short_option)
     {
@@ -1405,7 +1406,7 @@ Process::SetProcessExitStatus (void *callback_baton,
 {
     LogSP log(lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_PROCESS));
     if (log)
-        log->Printf ("Process::SetProcessExitStatus (baton=%p, pid=%llu, exited=%i, signal=%i, exit_status=%i)\n", 
+        log->Printf ("Process::SetProcessExitStatus (baton=%p, pid=%" PRIu64 ", exited=%i, signal=%i, exit_status=%i)\n",
                      callback_baton,
                      pid,
                      exited,
@@ -1706,7 +1707,7 @@ Process::UnloadImage (uint32_t image_token)
                         frame_sp->CalculateExecutionContext (exe_ctx);
                         bool unwind_on_error = true;
                         StreamString expr;
-                        expr.Printf("dlclose ((void *)0x%llx)", image_addr);
+                        expr.Printf("dlclose ((void *)0x%" PRIx64 ")", image_addr);
                         const char *prefix = "extern \"C\" int dlclose(void* handle);\n";
                         lldb::ValueObjectSP result_valobj_sp;
                         ClangUserExpression::Evaluate (exe_ctx,
@@ -1860,7 +1861,7 @@ Process::DisableBreakpointSiteByID (lldb::user_id_t break_id)
     }
     else
     {
-        error.SetErrorStringWithFormat("invalid breakpoint site ID: %llu", break_id);
+        error.SetErrorStringWithFormat("invalid breakpoint site ID: %" PRIu64, break_id);
     }
 
     return error;
@@ -1878,7 +1879,7 @@ Process::EnableBreakpointSiteByID (lldb::user_id_t break_id)
     }
     else
     {
-        error.SetErrorStringWithFormat("invalid breakpoint site ID: %llu", break_id);
+        error.SetErrorStringWithFormat("invalid breakpoint site ID: %" PRIu64, break_id);
     }
     return error;
 }
@@ -1982,11 +1983,11 @@ Process::EnableSoftwareBreakpoint (BreakpointSite *bp_site)
     LogSP log(lldb_private::GetLogIfAnyCategoriesSet (LIBLLDB_LOG_BREAKPOINTS));
     const addr_t bp_addr = bp_site->GetLoadAddress();
     if (log)
-        log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%llx", bp_site->GetID(), (uint64_t)bp_addr);
+        log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64, bp_site->GetID(), (uint64_t)bp_addr);
     if (bp_site->IsEnabled())
     {
         if (log)
-            log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- already enabled", bp_site->GetID(), (uint64_t)bp_addr);
+            log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- already enabled", bp_site->GetID(), (uint64_t)bp_addr);
         return error;
     }
 
@@ -2001,7 +2002,7 @@ Process::EnableSoftwareBreakpoint (BreakpointSite *bp_site)
 
     if (bp_opcode_size == 0)
     {
-        error.SetErrorStringWithFormat ("Process::GetSoftwareBreakpointTrapOpcode() returned zero, unable to get breakpoint trap for address 0x%llx", bp_addr);
+        error.SetErrorStringWithFormat ("Process::GetSoftwareBreakpointTrapOpcode() returned zero, unable to get breakpoint trap for address 0x%" PRIx64, bp_addr);
     }
     else
     {
@@ -2027,7 +2028,7 @@ Process::EnableSoftwareBreakpoint (BreakpointSite *bp_site)
                         bp_site->SetEnabled(true);
                         bp_site->SetType (BreakpointSite::eSoftware);
                         if (log)
-                            log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- SUCCESS",
+                            log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- SUCCESS",
                                          bp_site->GetID(),
                                          (uint64_t)bp_addr);
                     }
@@ -2044,7 +2045,7 @@ Process::EnableSoftwareBreakpoint (BreakpointSite *bp_site)
             error.SetErrorString("Unable to read memory at breakpoint address.");
     }
     if (log && error.Fail())
-        log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- FAILED: %s",
+        log->Printf ("Process::EnableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- FAILED: %s",
                      bp_site->GetID(),
                      (uint64_t)bp_addr,
                      error.AsCString());
@@ -2060,7 +2061,7 @@ Process::DisableSoftwareBreakpoint (BreakpointSite *bp_site)
     addr_t bp_addr = bp_site->GetLoadAddress();
     lldb::user_id_t breakID = bp_site->GetID();
     if (log)
-        log->Printf ("Process::DisableBreakpoint (breakID = %llu) addr = 0x%llx", breakID, (uint64_t)bp_addr);
+        log->Printf ("Process::DisableBreakpoint (breakID = %" PRIu64 ") addr = 0x%" PRIx64, breakID, (uint64_t)bp_addr);
 
     if (bp_site->IsHardware())
     {
@@ -2114,7 +2115,7 @@ Process::DisableSoftwareBreakpoint (BreakpointSite *bp_site)
                             // SUCCESS
                             bp_site->SetEnabled(false);
                             if (log)
-                                log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- SUCCESS", bp_site->GetID(), (uint64_t)bp_addr);
+                                log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- SUCCESS", bp_site->GetID(), (uint64_t)bp_addr);
                             return error;
                         }
                         else
@@ -2134,12 +2135,12 @@ Process::DisableSoftwareBreakpoint (BreakpointSite *bp_site)
     else
     {
         if (log)
-            log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- already disabled", bp_site->GetID(), (uint64_t)bp_addr);
+            log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- already disabled", bp_site->GetID(), (uint64_t)bp_addr);
         return error;
     }
 
     if (log)
-        log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%llx -- FAILED: %s",
+        log->Printf ("Process::DisableSoftwareBreakpoint (site_id = %d) addr = 0x%" PRIx64 " -- FAILED: %s",
                      bp_site->GetID(),
                      (uint64_t)bp_addr,
                      error.AsCString());
@@ -2489,7 +2490,7 @@ Process::AllocateMemory(size_t size, uint32_t permissions, Error &error)
     addr_t allocated_addr = DoAllocateMemory (size, permissions, error);
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
     if (log)
-        log->Printf("Process::AllocateMemory(size=%4zu, permissions=%s) => 0x%16.16llx (m_stop_id = %u m_memory_id = %u)", 
+        log->Printf("Process::AllocateMemory(size=%4zu, permissions=%s) => 0x%16.16" PRIx64 " (m_stop_id = %u m_memory_id = %u)",
                     size, 
                     GetPermissionsAsCString (permissions),
                     (uint64_t)allocated_addr,
@@ -2534,14 +2535,14 @@ Process::DeallocateMemory (addr_t ptr)
 #if defined (USE_ALLOCATE_MEMORY_CACHE)
     if (!m_allocated_memory_cache.DeallocateMemory(ptr))
     {
-        error.SetErrorStringWithFormat ("deallocation of memory at 0x%llx failed.", (uint64_t)ptr);
+        error.SetErrorStringWithFormat ("deallocation of memory at 0x%" PRIx64 " failed.", (uint64_t)ptr);
     }
 #else
     error = DoDeallocateMemory (ptr);
     
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
     if (log)
-        log->Printf("Process::DeallocateMemory(addr=0x%16.16llx) => err = %s (m_stop_id = %u, m_memory_id = %u)", 
+        log->Printf("Process::DeallocateMemory(addr=0x%16.16" PRIx64 ") => err = %s (m_stop_id = %u, m_memory_id = %u)",
                     ptr, 
                     error.AsCString("SUCCESS"),
                     m_mod_id.GetStopID(),
@@ -3449,9 +3450,9 @@ Process::StartPrivateStateThread (bool force)
     // events make it to clients (into the DCProcess event queue).
     char thread_name[1024];
     if (already_running)
-        snprintf(thread_name, sizeof(thread_name), "<lldb.process.internal-state-override(pid=%llu)>", GetID());
+        snprintf(thread_name, sizeof(thread_name), "<lldb.process.internal-state-override(pid=%" PRIu64 ")>", GetID());
     else
-        snprintf(thread_name, sizeof(thread_name), "<lldb.process.internal-state(pid=%llu)>", GetID());
+        snprintf(thread_name, sizeof(thread_name), "<lldb.process.internal-state(pid=%" PRIu64 ")>", GetID());
         
     // Create the private state thread, and start it running.
     m_private_state_thread = Host::ThreadCreate (thread_name, Process::PrivateStateThread, this, NULL);
@@ -3600,7 +3601,7 @@ Process::HandlePrivateEvent (EventSP &event_sp)
     {
         if (log)
         {
-            log->Printf ("Process::%s (pid = %llu) broadcasting new state %s (old state %s) to %s", 
+            log->Printf ("Process::%s (pid = %" PRIu64 ") broadcasting new state %s (old state %s) to %s",
                          __FUNCTION__, 
                          GetID(), 
                          StateAsCString(new_state), 
@@ -3619,7 +3620,7 @@ Process::HandlePrivateEvent (EventSP &event_sp)
     {
         if (log)
         {
-            log->Printf ("Process::%s (pid = %llu) suppressing state %s (old state %s): should_broadcast == false", 
+            log->Printf ("Process::%s (pid = %" PRIu64 ") suppressing state %s (old state %s): should_broadcast == false",
                          __FUNCTION__, 
                          GetID(), 
                          StateAsCString(new_state), 
@@ -3645,7 +3646,7 @@ Process::RunPrivateStateThread ()
 
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
     if (log)
-        log->Printf ("Process::%s (arg = %p, pid = %llu) thread starting...", __FUNCTION__, this, GetID());
+        log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") thread starting...", __FUNCTION__, this, GetID());
 
     bool exit_now = false;
     while (!exit_now)
@@ -3655,7 +3656,7 @@ Process::RunPrivateStateThread ()
         if (event_sp->BroadcasterIs(&m_private_state_control_broadcaster))
         {
             if (log)
-                log->Printf ("Process::%s (arg = %p, pid = %llu) got a control event: %d", __FUNCTION__, this, GetID(), event_sp->GetType());
+                log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") got a control event: %d", __FUNCTION__, this, GetID(), event_sp->GetType());
 
             switch (event_sp->GetType())
             {
@@ -3680,13 +3681,13 @@ Process::RunPrivateStateThread ()
             if (m_public_state.GetValue() == eStateAttaching)
             {
                 if (log)
-                    log->Printf ("Process::%s (arg = %p, pid = %llu) woke up with an interrupt while attaching - forwarding interrupt.", __FUNCTION__, this, GetID());
+                    log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") woke up with an interrupt while attaching - forwarding interrupt.", __FUNCTION__, this, GetID());
                 BroadcastEvent (eBroadcastBitInterrupt, NULL);
             }
             else
             {
                 if (log)
-                    log->Printf ("Process::%s (arg = %p, pid = %llu) woke up with an interrupt - Halting.", __FUNCTION__, this, GetID());
+                    log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") woke up with an interrupt - Halting.", __FUNCTION__, this, GetID());
                 Halt();
             }
             continue;
@@ -3704,7 +3705,7 @@ Process::RunPrivateStateThread ()
             internal_state == eStateDetached )
         {
             if (log)
-                log->Printf ("Process::%s (arg = %p, pid = %llu) about to exit with internal state %s...", __FUNCTION__, this, GetID(), StateAsCString(internal_state));
+                log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") about to exit with internal state %s...", __FUNCTION__, this, GetID(), StateAsCString(internal_state));
 
             break;
         }
@@ -3712,7 +3713,7 @@ Process::RunPrivateStateThread ()
 
     // Verify log is still enabled before attempting to write to it...
     if (log)
-        log->Printf ("Process::%s (arg = %p, pid = %llu) thread exiting...", __FUNCTION__, this, GetID());
+        log->Printf ("Process::%s (arg = %p, pid = %" PRIu64 ") thread exiting...", __FUNCTION__, this, GetID());
 
     m_private_state_control_wait.SetValue (true, eBroadcastAlways);
     m_private_state_thread = LLDB_INVALID_HOST_THREAD;
@@ -3870,7 +3871,7 @@ void
 Process::ProcessEventData::Dump (Stream *s) const
 {
     if (m_process_sp)
-        s->Printf(" process = %p (pid = %llu), ", m_process_sp.get(), m_process_sp->GetID());
+        s->Printf(" process = %p (pid = %" PRIu64 "), ", m_process_sp.get(), m_process_sp->GetID());
 
     s->Printf("state = %s", StateAsCString(GetState()));
 }
@@ -4008,7 +4009,7 @@ void
 Process::BroadcastAsyncProfileData(const char *s, size_t len)
 {
     Mutex::Locker locker (m_profile_data_comm_mutex);
-    m_profile_data.append (s, len);
+    m_profile_data.push_back(s);
     BroadcastEventIfUnique (eBroadcastBitProfileData, new ProcessEventData (shared_from_this(), GetState()));
 }
 
@@ -4016,22 +4017,25 @@ size_t
 Process::GetAsyncProfileData (char *buf, size_t buf_size, Error &error)
 {
     Mutex::Locker locker(m_profile_data_comm_mutex);
-    size_t bytes_available = m_profile_data.size();
+    if (m_profile_data.empty())
+        return 0;
+
+    size_t bytes_available = m_profile_data.front().size();
     if (bytes_available > 0)
     {
         LogSP log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
         if (log)
-            log->Printf ("Process::GetProfileData (buf = %p, size = %llu)", buf, (uint64_t)buf_size);
+            log->Printf ("Process::GetProfileData (buf = %p, size = %" PRIu64 ")", buf, (uint64_t)buf_size);
         if (bytes_available > buf_size)
         {
-            memcpy(buf, m_profile_data.c_str(), buf_size);
-            m_profile_data.erase(0, buf_size);
+            memcpy(buf, m_profile_data.front().data(), buf_size);
+            m_profile_data.front().erase(0, buf_size);
             bytes_available = buf_size;
         }
         else
         {
-            memcpy(buf, m_profile_data.c_str(), bytes_available);
-            m_profile_data.clear();
+            memcpy(buf, m_profile_data.front().data(), bytes_available);
+            m_profile_data.erase(m_profile_data.begin());
         }
     }
     return bytes_available;
@@ -4051,7 +4055,7 @@ Process::GetSTDOUT (char *buf, size_t buf_size, Error &error)
     {
         LogSP log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
         if (log)
-            log->Printf ("Process::GetSTDOUT (buf = %p, size = %llu)", buf, (uint64_t)buf_size);
+            log->Printf ("Process::GetSTDOUT (buf = %p, size = %" PRIu64 ")", buf, (uint64_t)buf_size);
         if (bytes_available > buf_size)
         {
             memcpy(buf, m_stdout_data.c_str(), buf_size);
@@ -4077,7 +4081,7 @@ Process::GetSTDERR (char *buf, size_t buf_size, Error &error)
     {
         LogSP log (lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_PROCESS));
         if (log)
-            log->Printf ("Process::GetSTDERR (buf = %p, size = %llu)", buf, (uint64_t)buf_size);
+            log->Printf ("Process::GetSTDERR (buf = %p, size = %" PRIu64 ")", buf, (uint64_t)buf_size);
         if (bytes_available > buf_size)
         {
             memcpy(buf, m_stderr_data.c_str(), buf_size);
@@ -4359,7 +4363,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         {
             StreamString s;
             thread_plan_sp->GetDescription(&s, lldb::eDescriptionLevelVerbose);
-            log->Printf ("Process::RunThreadPlan(): Resuming thread %u - 0x%4.4llx to run thread plan \"%s\".",  
+            log->Printf ("Process::RunThreadPlan(): Resuming thread %u - 0x%4.4" PRIx64 " to run thread plan \"%s\".",
                          thread->GetIndexID(), 
                          thread->GetID(), 
                          s.GetData());
@@ -4376,6 +4380,9 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
         bool do_resume = true;
         const uint64_t default_one_thread_timeout_usec = 250000;
         uint64_t computed_timeout = 0;
+        
+        // This while loop must exit out the bottom, there's cleanup that we need to do when we are done.
+        // So don't call return anywhere within it.
         
         while (1)
         {
@@ -4610,7 +4617,7 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                     if (run_others)
                     {
                         if (first_timeout)
-                            log->Printf ("Process::RunThreadPlan(): Running function with timeout: %lld timed out, "
+                            log->Printf ("Process::RunThreadPlan(): Running function with timeout: %" PRId64 " timed out, "
                                          "trying  for %d usec with all threads enabled.",
                                          computed_timeout, timeout_usec);
                         else
@@ -4784,6 +4791,12 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
 
         }
         
+        // Restore the thread state if we are going to discard the plan execution.
+        
+        if (return_value == eExecutionCompleted || discard_on_error)
+        {
+            thread_plan_sp->RestoreThreadState();
+        }
         
         // Now do some processing on the results of the run:
         if (return_value == eExecutionInterrupted)
@@ -4851,11 +4864,11 @@ Process::RunThreadPlan (ExecutionContext &exe_ctx,
                                 continue;
                             }
                             
-                            ts.Printf("<0x%4.4llx ", thread->GetID());
+                            ts.Printf("<0x%4.4" PRIx64 " ", thread->GetID());
                             RegisterContext *register_context = thread->GetRegisterContext().get();
                             
                             if (register_context)
-                                ts.Printf("[ip 0x%llx] ", register_context->GetPC());
+                                ts.Printf("[ip 0x%" PRIx64 "] ", register_context->GetPC());
                             else
                                 ts.Printf("[ip unknown] ");
                             
@@ -5003,7 +5016,7 @@ Process::GetStatus (Stream &strm)
         {
             int exit_status = GetExitStatus();
             const char *exit_description = GetExitDescription();
-            strm.Printf ("Process %llu exited with status = %i (0x%8.8x) %s\n",
+            strm.Printf ("Process %" PRIu64 " exited with status = %i (0x%8.8x) %s\n",
                           GetID(),
                           exit_status,
                           exit_status,
@@ -5014,12 +5027,12 @@ Process::GetStatus (Stream &strm)
             if (state == eStateConnected)
                 strm.Printf ("Connected to remote target.\n");
             else
-                strm.Printf ("Process %llu %s\n", GetID(), StateAsCString (state));
+                strm.Printf ("Process %" PRIu64 " %s\n", GetID(), StateAsCString (state));
         }
     }
     else
     {
-        strm.Printf ("Process %llu is running.\n", GetID());
+        strm.Printf ("Process %" PRIu64 " is running.\n", GetID());
     }
 }
 

@@ -876,7 +876,7 @@ SBTarget::Attach (SBAttachInfo &sb_attach_info, SBError& error)
                     }
                     else
                     {
-                        error.ref().SetErrorStringWithFormat("no process found with process ID %llu", attach_pid);
+                        error.ref().SetErrorStringWithFormat("no process found with process ID %" PRIu64, attach_pid);
                         if (log)
                         {
                             log->Printf ("SBTarget(%p)::Attach (...) => error %s",
@@ -944,7 +944,7 @@ SBTarget::AttachToProcessWithID
 
     if (log)
     {
-        log->Printf ("SBTarget(%p)::AttachToProcessWithID (listener, pid=%lld, error)...", target_sp.get(), pid);
+        log->Printf ("SBTarget(%p)::AttachToProcessWithID (listener, pid=%" PRId64 ", error)...", target_sp.get(), pid);
     }
     
     if (target_sp)
@@ -1487,7 +1487,7 @@ SBTarget::BreakpointCreateByAddress (addr_t address)
     
     if (log)
     {
-        log->Printf ("SBTarget(%p)::BreakpointCreateByAddress (address=%llu) => SBBreakpoint(%p)", target_sp.get(), (uint64_t) address, sb_bp.get());
+        log->Printf ("SBTarget(%p)::BreakpointCreateByAddress (address=%" PRIu64 ") => SBBreakpoint(%p)", target_sp.get(), (uint64_t) address, sb_bp.get());
     }
 
     return sb_bp;
@@ -1792,7 +1792,7 @@ SBTarget::WatchAddress (lldb::addr_t addr, size_t size, bool read, bool write, S
     
     if (log)
     {
-        log->Printf ("SBTarget(%p)::WatchAddress (addr=0x%llx, 0x%u) => SBWatchpoint(%p)", 
+        log->Printf ("SBTarget(%p)::WatchAddress (addr=0x%" PRIx64 ", 0x%u) => SBWatchpoint(%p)",
                      target_sp.get(), addr, (uint32_t) size, watchpoint_sp.get());
     }
     
@@ -2352,6 +2352,27 @@ SBTarget::ClearModuleLoadAddress (lldb::SBModule module)
         sb_error.SetErrorStringWithFormat ("invalid target");
     }
     return sb_error;
+}
+
+
+lldb::SBSymbolContextList
+SBTarget::FindSymbols (const char *name, lldb::SymbolType symbol_type)
+{
+    SBSymbolContextList sb_sc_list;
+    if (name && name[0])
+    {
+        TargetSP target_sp(GetSP());
+        if (target_sp)
+        {
+            bool append = true;
+            target_sp->GetImages().FindSymbolsWithNameAndType (ConstString(name),
+                                                               symbol_type,
+                                                               *sb_sc_list,
+                                                               append);
+        }
+    }
+    return sb_sc_list;
+    
 }
 
 

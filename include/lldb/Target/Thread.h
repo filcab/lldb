@@ -732,6 +732,9 @@ public:
     CheckpointThreadState (ThreadStateCheckpoint &saved_state);
     
     virtual bool
+    RestoreRegisterStateFromCheckpoint (ThreadStateCheckpoint &saved_state);
+    
+    virtual bool
     RestoreThreadStateFromCheckpoint (ThreadStateCheckpoint &saved_state);
     
     void
@@ -859,7 +862,7 @@ protected:
     GetUnwinder ();
 
     // Check to see whether the thread is still at the last breakpoint hit that stopped it.
-    virtual const bool
+    virtual bool
     IsStillAtLastBreakpointHit();
 
     lldb::StackFrameListSP

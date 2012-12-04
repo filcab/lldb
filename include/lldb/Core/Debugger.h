@@ -30,6 +30,7 @@
 #include "lldb/Core/SourceManager.h"
 #include "lldb/Core/UserID.h"
 #include "lldb/Core/UserSettingsController.h"
+#include "lldb/Host/Terminal.h"
 #include "lldb/Interpreter/OptionValueProperties.h"
 #include "lldb/Target/ExecutionContext.h"
 #include "lldb/Target/Platform.h"
@@ -116,6 +117,12 @@ public:
 
     void
     SetErrorFileHandle (FILE *fh, bool tranfer_ownership);
+    
+    void
+    SaveInputTerminalState();
+    
+    void
+    RestoreInputTerminalState();
 
     Stream&
     GetOutputStream ()
@@ -351,6 +358,7 @@ protected:
     StreamFile m_input_file;
     StreamFile m_output_file;
     StreamFile m_error_file;
+    TerminalState m_terminal_state;
     TargetList m_target_list;
     PlatformList m_platform_list;
     Listener m_listener;

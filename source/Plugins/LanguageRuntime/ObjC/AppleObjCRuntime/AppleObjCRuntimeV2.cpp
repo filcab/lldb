@@ -727,7 +727,8 @@ public:
                    lldb::addr_t load_addr) :
         m_process(process),
         m_end_iterator(*this, -1ll),
-        m_load_addr(load_addr)
+        m_load_addr(load_addr),
+        m_classheader_size(sizeof(int32_t) * 2)
     {
         lldb::addr_t cursor = load_addr;
         
@@ -946,7 +947,7 @@ private:
     lldb_private::Process *m_process;
     const_iterator m_end_iterator;
     lldb::addr_t m_load_addr;
-    const size_t m_classheader_size = (sizeof(int32_t) * 2);
+    const size_t m_classheader_size;
 };
 
 class ClassDescriptorV2 : public ObjCLanguageRuntime::ClassDescriptor
@@ -1800,7 +1801,7 @@ AppleObjCRuntimeV2::GetClassDescriptor (ValueObject& valobj)
                     {
                         lldb::LogSP log(GetLogIfAllCategoriesSet(LIBLLDB_LOG_PROCESS));
                         if (log)
-                            log->Printf("0x%llx: AppleObjCRuntimeV2::GetClassDescriptor() ISA was not in class descriptor cache 0x%llx",
+                            log->Printf("0x%" PRIx64 ": AppleObjCRuntimeV2::GetClassDescriptor() ISA was not in class descriptor cache 0x%" PRIx64,
                                         isa_pointer,
                                         isa);
                     }
@@ -1875,7 +1876,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapIfNeeded()
                     ClassDescriptorSP descriptor_sp = ClassDescriptorSP(new ClassDescriptorV2(*this, elt.second));
                     
                     if (log && log->GetVerbose())
-                        log->Printf("AppleObjCRuntimeV2 added (ObjCISA)0x%llx (%s) from dynamic table to isa->descriptor cache", elt.second, elt.first.AsCString());
+                        log->Printf("AppleObjCRuntimeV2 added (ObjCISA)0x%" PRIx64 " (%s) from dynamic table to isa->descriptor cache", elt.second, elt.first.AsCString());
                     
                     m_isa_to_descriptor_cache[elt.second] = descriptor_sp;
                 }
@@ -1915,7 +1916,7 @@ AppleObjCRuntimeV2::UpdateISAToDescriptorMapIfNeeded()
                                             ClassDescriptorSP descriptor_sp = ClassDescriptorSP(new ClassDescriptorV2(*this, objc_isa));
                                             
                                             if (log && log->GetVerbose())
-                                                log->Printf("AppleObjCRuntimeV2 added (ObjCISA)0x%llx (%s) from static table to isa->descriptor cache", objc_isa, descriptor_sp->GetClassName().AsCString());
+                                                log->Printf("AppleObjCRuntimeV2 added (ObjCISA)0x%" PRIx64 " (%s) from static table to isa->descriptor cache", objc_isa, descriptor_sp->GetClassName().AsCString());
                                             
                                             m_isa_to_descriptor_cache[objc_isa] = descriptor_sp;
                                         }

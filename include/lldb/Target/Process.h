@@ -3137,8 +3137,7 @@ public:
     {
     public:
         ProcessEventHijacker (Process &process, Listener *listener) :
-            m_process (process),
-            m_listener (listener)
+            m_process (process)
         {
             m_process.HijackProcessEvents (listener);
         }
@@ -3149,7 +3148,6 @@ public:
          
     private:
         Process &m_process;
-        Listener *m_listener;
     };
     friend class ProcessEventHijacker;
     //------------------------------------------------------------------
@@ -3463,7 +3461,7 @@ protected:
     std::string                 m_stdout_data;
     std::string                 m_stderr_data;
     Mutex                       m_profile_data_comm_mutex;
-    std::string                 m_profile_data;
+    std::vector<std::string>    m_profile_data;
     MemoryCache                 m_memory_cache;
     AllocatedMemoryCache        m_allocated_memory_cache;
     bool                        m_should_detach;   /// Should we detach if the process object goes away with an explicit call to Kill or Detach?

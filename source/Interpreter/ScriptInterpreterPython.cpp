@@ -334,7 +334,7 @@ ScriptInterpreterPython::PythonInputReaderManager::InputReaderCallback
                 if (IS_VALID_LLDB_HOST_THREAD(embedded_interpreter_thread))
                 {
                     if (log)
-                        log->Printf ("ScriptInterpreterPython::NonInteractiveInputReaderCallback, Activate, succeeded in creating thread (thread_t = %p)", embedded_interpreter_thread);
+                        log->Printf ("ScriptInterpreterPython::NonInteractiveInputReaderCallback, Activate, succeeded in creating thread (thread_t = %p)", (void *)embedded_interpreter_thread);
                     Error detach_error;
                     Host::ThreadDetach (embedded_interpreter_thread, &detach_error);
                 }
@@ -493,7 +493,7 @@ ScriptInterpreterPython::ScriptInterpreterPython (CommandInterpreter &interprete
         Debugger::Terminate();
 
     run_string.Clear();
-    run_string.Printf ("run_one_line (%s, 'lldb.debugger_unique_id = %llu; pydoc.pager = pydoc.plainpager')", m_dictionary_name.c_str(),
+    run_string.Printf ("run_one_line (%s, 'lldb.debugger_unique_id = %" PRIu64 "; pydoc.pager = pydoc.plainpager')", m_dictionary_name.c_str(),
                        interpreter.GetDebugger().GetID());
     PyRun_SimpleString (run_string.GetData());
     
@@ -614,8 +614,8 @@ ScriptInterpreterPython::EnterSession ()
 
     StreamString run_string;
 
-    run_string.Printf (    "run_one_line (%s, 'lldb.debugger_unique_id = %llu", m_dictionary_name.c_str(), GetCommandInterpreter().GetDebugger().GetID());
-    run_string.Printf (    "; lldb.debugger = lldb.SBDebugger.FindDebuggerWithID (%llu)", GetCommandInterpreter().GetDebugger().GetID());
+    run_string.Printf (    "run_one_line (%s, 'lldb.debugger_unique_id = %" PRIu64, m_dictionary_name.c_str(), GetCommandInterpreter().GetDebugger().GetID());
+    run_string.Printf (    "; lldb.debugger = lldb.SBDebugger.FindDebuggerWithID (%" PRIu64 ")", GetCommandInterpreter().GetDebugger().GetID());
     run_string.PutCString ("; lldb.target = lldb.debugger.GetSelectedTarget()");
     run_string.PutCString ("; lldb.process = lldb.target.GetProcess()");
     run_string.PutCString ("; lldb.thread = lldb.process.GetSelectedThread ()");
@@ -859,7 +859,7 @@ ScriptInterpreterPython::InputReaderCallback
                 if (IS_VALID_LLDB_HOST_THREAD(embedded_interpreter_thread))
                 {
                     if (log)
-                        log->Printf ("ScriptInterpreterPython::InputReaderCallback, Activate, succeeded in creating thread (thread_t = %p)", embedded_interpreter_thread);
+                        log->Printf ("ScriptInterpreterPython::InputReaderCallback, Activate, succeeded in creating thread (thread_t = %p)", (void *)embedded_interpreter_thread);
                     Error detach_error;
                     Host::ThreadDetach (embedded_interpreter_thread, &detach_error);
                 }
@@ -2383,6 +2383,63 @@ ScriptInterpreterPython::MightHaveChildrenSynthProviderInstance (const lldb::Scr
     return ret_val;
 }
 
+static std::string
+ReadPythonBacktrace (PyObject* py_backtrace)
+{
+    PyObject* traceback_module = NULL,
+    *stringIO_module = NULL,
+    *stringIO_builder = NULL,
+    *stringIO_buffer = NULL,
+    *printTB = NULL,
+    *printTB_args = NULL,
+    *printTB_result = NULL,
+    *stringIO_getvalue = NULL,
+    *printTB_string = NULL;
+
+    std::string retval("backtrace unavailable");
+    
+    if (py_backtrace && py_backtrace != Py_None)
+    {
+        traceback_module = PyImport_ImportModule("traceback");
+        stringIO_module = PyImport_ImportModule("StringIO");
+        
+        if (traceback_module && traceback_module != Py_None && stringIO_module && stringIO_module != Py_None)
+        {
+            stringIO_builder = PyObject_GetAttrString(stringIO_module, "StringIO");
+            if (stringIO_builder && stringIO_builder != Py_None)
+            {
+                stringIO_buffer = PyObject_CallObject(stringIO_builder, NULL);
+                if (stringIO_buffer && stringIO_buffer != Py_None)
+                {
+                    printTB = PyObject_GetAttrString(traceback_module, "print_tb");
+                    if (printTB && printTB != Py_None)
+                    {
+                        printTB_args = Py_BuildValue("OOO",py_backtrace,Py_None,stringIO_buffer);
+                        printTB_result = PyObject_CallObject(printTB, printTB_args);
+                        stringIO_getvalue = PyObject_GetAttrString(stringIO_buffer, "getvalue");
+                        if (stringIO_getvalue && stringIO_getvalue != Py_None)
+                        {
+                            printTB_string = PyObject_CallObject (stringIO_getvalue,NULL);
+                            if (printTB_string && printTB_string != Py_None && PyString_Check(printTB_string))
+                                retval.assign(PyString_AsString(printTB_string));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    Py_XDECREF(traceback_module);
+    Py_XDECREF(stringIO_module);
+    Py_XDECREF(stringIO_builder);
+    Py_XDECREF(stringIO_buffer);
+    Py_XDECREF(printTB);
+    Py_XDECREF(printTB_args);
+    Py_XDECREF(printTB_result);
+    Py_XDECREF(stringIO_getvalue);
+    Py_XDECREF(printTB_string);
+    return retval;
+}
+
 bool
 ScriptInterpreterPython::LoadScriptingModule (const char* pathname,
                                               bool can_reload,
@@ -2436,10 +2493,13 @@ ScriptInterpreterPython::LoadScriptingModule (const char* pathname,
         
         // strip .py or .pyc extension
         ConstString extension = target_file.GetFileNameExtension();
-        if (::strcmp(extension.GetCString(), "py") == 0)
-            basename.resize(basename.length()-3);
-        else if(::strcmp(extension.GetCString(), "pyc") == 0)
-            basename.resize(basename.length()-4);
+        if (extension)
+        {
+            if (::strcmp(extension.GetCString(), "py") == 0)
+                basename.resize(basename.length()-3);
+            else if(::strcmp(extension.GetCString(), "pyc") == 0)
+                basename.resize(basename.length()-4);
+        }
         
         // check if the module is already import-ed
         command_stream.Clear();
@@ -2467,34 +2527,30 @@ ScriptInterpreterPython::LoadScriptingModule (const char* pathname,
         {
             if (py_error) // if we have a Python error..
             {
+                PyObject *type = NULL,*value = NULL,*traceback = NULL;
+                PyErr_Fetch (&type,&value,&traceback);
+
                 if (PyErr_GivenExceptionMatches (py_error, PyExc_ImportError)) // and it is an ImportError
                 {
-                    PyObject *type,*value,*traceback;
-                    PyErr_Fetch (&type,&value,&traceback);
-                    
                     if (value && value != Py_None)
                         error.SetErrorString(PyString_AsString(PyObject_Str(value)));
                     else
                         error.SetErrorString("ImportError raised by imported module");
-                    
-                    Py_XDECREF(type);
-                    Py_XDECREF(value);
-                    Py_XDECREF(traceback);
                 }
                 else // any other error
                 {
-                    PyObject *type,*value,*traceback;
-                    PyErr_Fetch (&type,&value,&traceback);
+                    // get the backtrace
+                    std::string bt = ReadPythonBacktrace(traceback);
                     
                     if (value && value != Py_None)
-                        error.SetErrorStringWithFormat("Python error raised while importing module: %s", PyString_AsString(PyObject_Str(value)));
+                        error.SetErrorStringWithFormat("Python error raised while importing module: %s - traceback: %s", PyString_AsString(PyObject_Str(value)),bt.c_str());
                     else
-                        error.SetErrorString("Python raised an error while importing module");
-                    
-                    Py_XDECREF(type);
-                    Py_XDECREF(value);
-                    Py_XDECREF(traceback);
+                        error.SetErrorStringWithFormat("Python raised an error while importing module - traceback: %s",bt.c_str());
                 }
+                
+                Py_XDECREF(type);
+                Py_XDECREF(value);
+                Py_XDECREF(traceback);
             }
             else // we failed but have no error to explain why
             {

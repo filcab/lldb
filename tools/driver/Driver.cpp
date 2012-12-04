@@ -18,6 +18,7 @@
 #include <stdlib.h>
 #include <limits.h>
 #include <fcntl.h>
+#include <inttypes.h>
 
 #include <string>
 
@@ -62,7 +63,7 @@ typedef struct
                                              // then this option belongs to option set n.
     bool required;                           // This option is required (in the current usage level)
     const char * long_option;                // Full name for this option.
-    char short_option;                       // Single character for this option.
+    int short_option;                        // Single character for this option.
     int option_has_arg;                      // no_argument, required_argument or optional_argument
     uint32_t completion_type;                // Cookie the option class can use to do define the argument completion.
     lldb::CommandArgumentType argument_type; // Type of argument this option takes
@@ -577,7 +578,7 @@ Driver::ParseArgs (int argc, const char *argv[], FILE *out_fh, bool &exit)
 
             if (long_options_index >= 0)
             {
-                const char short_option = (char) g_options[long_options_index].short_option;
+                const int short_option = g_options[long_options_index].short_option;
 
                 switch (short_option)
                 {
@@ -919,7 +920,7 @@ Driver::HandleProcessEvent (const SBEvent &event)
         case eStateDetached:
             {
                 char message[1024];
-                int message_len = ::snprintf (message, sizeof(message), "Process %llu %s\n", process.GetProcessID(),
+                int message_len = ::snprintf (message, sizeof(message), "Process %" PRIu64 " %s\n", process.GetProcessID(),
                                               m_debugger.StateAsCString (event_state));
                 m_io_channel_ap->OutWrite(message, message_len, ASYNC);
             }
@@ -946,7 +947,7 @@ Driver::HandleProcessEvent (const SBEvent &event)
             {
                 // FIXME: Do we want to report this, or would that just be annoyingly chatty?
                 char message[1024];
-                int message_len = ::snprintf (message, sizeof(message), "Process %llu stopped and was programmatically restarted.\n",
+                int message_len = ::snprintf (message, sizeof(message), "Process %" PRIu64 " stopped and was programmatically restarted.\n",
                                               process.GetProcessID());
                 m_io_channel_ap->OutWrite(message, message_len, ASYNC);
             }
@@ -1423,7 +1424,7 @@ Driver::MainLoop ()
                 {
                     command_str.append("-p ");
                     char pid_buffer[32];
-                    ::snprintf (pid_buffer, sizeof(pid_buffer), "%llu", m_option_data.m_process_pid);
+                    ::snprintf (pid_buffer, sizeof(pid_buffer), "%" PRIu64, m_option_data.m_process_pid);
                     command_str.append(pid_buffer);
                 }
                 else 
@@ -1578,6 +1579,24 @@ sigint_handler (int signo)
 	exit (signo);
 }
 
+void
+sigtstp_handler (int signo)
+{
+    g_driver->GetDebugger().SaveInputTerminalState();
+    signal (signo, SIG_DFL);
+    kill (getpid(), signo);
+    signal (signo, sigtstp_handler);
+}
+
+void
+sigcont_handler (int signo)
+{
+    g_driver->GetDebugger().RestoreInputTerminalState();
+    signal (signo, SIG_DFL);
+    kill (getpid(), signo);
+    signal (signo, sigcont_handler);
+}
+
 int
 main (int argc, char const *argv[], const char *envp[])
 {
@@ -1588,6 +1607,8 @@ main (int argc, char const *argv[], const char *envp[])
     signal (SIGPIPE, SIG_IGN);
     signal (SIGWINCH, sigwinch_handler);
     signal (SIGINT, sigint_handler);
+    signal (SIGTSTP, sigtstp_handler);
+    signal (SIGCONT, sigcont_handler);
 
     // Create a scope for driver so that the driver object will destroy itself
     // before SBDebugger::Terminate() is called.

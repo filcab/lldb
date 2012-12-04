@@ -59,7 +59,7 @@ CommandObjectDisassemble::CommandOptions::SetOptionValue (uint32_t option_idx, c
 {
     Error error;
 
-    char short_option = (char) m_getopt_table[option_idx].val;
+    const int short_option = m_getopt_table[option_idx].val;
 
     bool success;
     
@@ -424,7 +424,7 @@ CommandObjectDisassemble::DoExecute (Args& command, CommandReturnObject &result)
             }
             else
             {
-                result.AppendErrorWithFormat ("Failed to disassemble memory at 0x%8.8llx.\n", m_options.start_addr);
+                result.AppendErrorWithFormat ("Failed to disassemble memory at 0x%8.8" PRIx64 ".\n", m_options.start_addr);
                 result.SetStatus (eReturnStatusFailed);            
             }
         }
@@ -470,7 +470,7 @@ CommandObjectDisassemble::DoExecute (Args& command, CommandReturnObject &result)
             }
             else
             {
-                result.AppendErrorWithFormat ("Failed to disassemble memory at 0x%8.8llx.\n", m_options.start_addr);
+                result.AppendErrorWithFormat ("Failed to disassemble memory at 0x%8.8" PRIx64 ".\n", m_options.start_addr);
                 result.SetStatus (eReturnStatusFailed);            
             }
         }
