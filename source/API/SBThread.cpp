@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/lldb-python.h"
+
 #include "lldb/API/SBThread.h"
 
 #include "lldb/API/SBSymbolContext.h"
@@ -147,6 +149,7 @@ SBThread::GetStopReasonDataCount ()
                 case eStopReasonInvalid:
                 case eStopReasonNone:
                 case eStopReasonTrace:
+                case eStopReasonExec:
                 case eStopReasonPlanComplete:
                     // There is no data for these stop reasons.
                     return 0;
@@ -204,6 +207,7 @@ SBThread::GetStopReasonDataAtIndex (uint32_t idx)
                 case eStopReasonInvalid:
                 case eStopReasonNone:
                 case eStopReasonTrace:
+                case eStopReasonExec:
                 case eStopReasonPlanComplete:
                     // There is no data for these stop reasons.
                     return 0;
@@ -335,6 +339,14 @@ SBThread::GetStopDescription (char *dst, size_t dst_len)
                             stop_desc_len = sizeof(exc_desc); // Include the NULL byte for size
                         }
                         break;          
+
+                    case eStopReasonExec:
+                        {
+                            char exc_desc[] = "exec";
+                            stop_desc = exc_desc;
+                            stop_desc_len = sizeof(exc_desc); // Include the NULL byte for size
+                        }
+                        break;
 
                     default:
                         break;

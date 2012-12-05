@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/lldb-python.h"
+
 #include "lldb/Target/Process.h"
 
 #include "lldb/lldb-private-log.h"
@@ -5110,4 +5112,23 @@ void
 Process::Flush ()
 {
     m_thread_list.Flush();
+}
+
+void
+Process::DidExec ()
+{
+    Target &target = GetTarget();
+    target.CleanupProcess ();
+    ModuleList unloaded_modules (target.GetImages());
+    target.ModulesDidUnload (unloaded_modules);
+    target.GetSectionLoadList().Clear();
+    m_dynamic_checkers_ap.reset();
+    m_abi_sp.reset();
+    m_os_ap.reset();
+    m_dyld_ap.reset();    
+    m_image_tokens.clear();
+    m_allocated_memory_cache.Clear();
+    m_language_runtimes.clear();
+    DoDidExec();
+    CompleteAttach ();
 }

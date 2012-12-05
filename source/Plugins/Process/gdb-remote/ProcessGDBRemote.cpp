@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/lldb-python.h"
+
 // C Includes
 #include <errno.h>
 #include <spawn.h>
@@ -1057,6 +1059,17 @@ ProcessGDBRemote::DidAttach ()
 {
     DidLaunchOrAttach ();
 }
+
+void
+ProcessGDBRemote::DoDidExec ()
+{
+    // The process exec'ed itself, figure out the dynamic loader, etc...
+    BuildDynamicRegisterInfo (true);
+    m_gdb_comm.ResetDiscoverableSettings();
+    DidLaunchOrAttach ();
+}
+
+
 
 Error
 ProcessGDBRemote::WillResume ()

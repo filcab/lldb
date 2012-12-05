@@ -7,6 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "lldb/lldb-python.h"
+
 #include "lldb/lldb-private-log.h"
 #include "lldb/Breakpoint/BreakpointLocation.h"
 #include "lldb/Core/Debugger.h"
@@ -1574,6 +1576,7 @@ Thread::StopReasonAsCString (lldb::StopReason reason)
     case eStopReasonWatchpoint:   return "watchpoint";
     case eStopReasonSignal:       return "signal";
     case eStopReasonException:    return "exception";
+    case eStopReasonExec:         return "exec";
     case eStopReasonPlanComplete: return "plan complete";
     }
 
