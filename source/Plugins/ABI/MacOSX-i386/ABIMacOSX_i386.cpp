@@ -790,8 +790,8 @@ ABIMacOSX_i386::ChangeTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t new_
         return error;
     }
 
-    Scalar trampoline_dst;
-    size_t size = process.ReadScalarIntegerFromMemory(trampoline_addr + sizeof(start_of_trampoline), /* imm32 */4, true, trampoline_dst, error);
+    Scalar trampoline_dst_addr_scalar;
+    size_t size = process.ReadScalarIntegerFromMemory(trampoline_addr + sizeof(start_of_trampoline), /* imm32 */4, true, trampoline_dst_addr_scalar, error);
     if (error.Fail())
         return error;
     if (size != 4) {
@@ -800,9 +800,9 @@ ABIMacOSX_i386::ChangeTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t new_
     }
 
     if (log)
-        log->Printf("ABI: Trampoline target location: 0x%llx", trampoline_dst.GetRawBits64(0xffffffffffffffff));
+        log->Printf("ABI: Trampoline target location: 0x%llx", trampoline_dst_addr_scalar.GetRawBits64(0xffffffffffffffff));
 
-    addr_t trampoline_dst_addr = trampoline_dst.GetRawBits64(0xffffffffffffffff);
+    addr_t trampoline_dst_addr = trampoline_dst_addr_scalar.GetRawBits64(0xffffffffffffffff);
     addr_t old_trampoline_dst = process.ReadPointerFromMemory(trampoline_dst_addr, error);
     if (error.Fail())
         return error;
@@ -815,7 +815,7 @@ ABIMacOSX_i386::ChangeTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t new_
         return error;
 
     if (log)
-        log->Printf("ABI: Trampoline at %llx now points to 0x%llx", trampoline_addr, new_target);
+        log->Printf("ABI: Trampoline at 0x%llx now points to 0x%llx", trampoline_addr, new_target);
 
     return error;
 }
@@ -837,24 +837,34 @@ ABIMacOSX_i386::CreateTrampoline(lldb::addr_t trampoline_addr, lldb::addr_t dst_
     Scalar trampoline_dst_addr(trampoline_addr + 2 + 4);
     Scalar trampoline_dst(dst_addr);
 
+    LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_VERBOSE));
+    if (log)
+        log->Printf("ABI: Creating trampoline to 0x%llx at 0x%llx", dst_addr, trampoline_addr);
+
     Error error;
     process.WriteMemory(trampoline_addr, jmp_opcode_bytes, sizeof(jmp_opcode_bytes), error);
     if (error.Fail()) {
         error.SetErrorStringWithFormat("Couldn't write trampoline jump opcode to address 0x%llx: %s", trampoline_addr, error.AsCString());
         return error;
     }
+    if (log)
+        log->Printf("ABI: Wrote opcode bytes to 0x%llx", trampoline_addr);
 
     process.WriteScalarToMemory(trampoline_addr + sizeof(jmp_opcode_bytes), trampoline_dst_addr, 4, error);
     if (error.Fail()) {
         error.SetErrorStringWithFormat("Couldn't write destination address to address 0x%llx: %s", trampoline_addr + sizeof(jmp_opcode_bytes), error.AsCString());
         return error;
     }
+    if (log)
+        log->Printf("ABI: Wrote jump destination bytes to 0x%llx", trampoline_addr + sizeof(jmp_opcode_bytes));
 
     process.WriteScalarToMemory(trampoline_dst_addr.GetRawBits64(0x0), trampoline_dst, 4, error);
     if (error.Fail()) {
         error.SetErrorStringWithFormat("Couldn't write destination to destination address 0x%llx: %s", trampoline_dst_addr.GetRawBits64(0x0), error.AsCString());
         return error;
     }
+    if (log)
+        log->Printf("ABI: Wrote trampoline destination (0x%llx) to 0x%llx", trampoline_dst_addr.GetRawBits64(0x0), dst_addr);
 
     return error;
 }
