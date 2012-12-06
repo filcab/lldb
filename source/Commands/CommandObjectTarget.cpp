@@ -460,9 +460,13 @@ protected:
                 size_t n_modules = images.GetSize();
                 for (size_t mod_idx = 0; mod_idx < n_modules; ++mod_idx) {
                     ModuleSP mod = images.GetModuleAtIndex(mod_idx);
+                    if (mod->GetUUID() == module_sp->GetUUID())
+                        // Don't overwrite functions in our newly loaded module
+                        continue;
+
                     Symtab *symtab = mod->GetObjectFile()->GetSymtab();
                     uint32_t start_idx = 0;
-                    Symbol *sym = symtab->FindSymbolWithType(eSymbolTypeTrampoline, Symtab::eDebugAny, Symtab::eVisibilityAny, start_idx);
+                    Symbol *sym = symtab->FindSymbolWithType(eSymbolTypeCode, Symtab::eDebugAny, Symtab::eVisibilityAny, start_idx);
                     if (sym && sym->GetName() == sym_name) {
                         addr_t old_sym_addr = sym->GetAddress().GetLoadAddress(&target);
                         addr_t new_sym_addr = new_sym->GetAddress().GetLoadAddress(&target);
