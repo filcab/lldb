@@ -690,6 +690,19 @@ Module::FindTypesInNamespace (const SymbolContext& sc,
     return FindTypes_Impl(sc, type_name, namespace_decl, append, max_matches, type_list);
 }
 
+lldb::TypeSP
+Module::FindFirstType (const SymbolContext& sc,
+                       const ConstString &name,
+                       bool exact_match)
+{
+    TypeList type_list;
+    const uint32_t num_matches = FindTypes (sc, name, exact_match, 1, type_list);
+    if (num_matches)
+        return type_list.GetTypeAtIndex(0);
+    return TypeSP();
+}
+
+
 uint32_t
 Module::FindTypes (const SymbolContext& sc,
                    const ConstString &name,
@@ -1166,7 +1179,9 @@ Module::LoadScriptingResourceInTarget (Target *target, Error& error)
         {
             StreamString scripting_stream;
             scripting_fspec.Dump(&scripting_stream);
-            bool did_load = script_interpreter->LoadScriptingModule(scripting_stream.GetData(), false, true, error);
+            const bool can_reload = false;
+            const bool init_lldb_globals = false;
+            bool did_load = script_interpreter->LoadScriptingModule(scripting_stream.GetData(), can_reload, init_lldb_globals, error);
             if (!did_load)
                 return false;
         }

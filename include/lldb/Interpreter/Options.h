@@ -25,6 +25,15 @@
 
 namespace lldb_private {
 
+  static inline bool
+  isprint8 (int ch)
+  {
+      if (ch & 0xffffff00u)
+          return false;
+      return isprint(ch);
+  }
+
+
 //----------------------------------------------------------------------
 /// @class Options Options.h "lldb/Interpreter/Options.h"
 /// @brief A command line option parsing protocol class.

@@ -58,7 +58,7 @@ ClangUserExpression::ClangUserExpression (const char *expr,
     m_language (language),
     m_transformed_text (),
     m_desired_type (desired_type),
-    m_enforce_valid_object (false),
+    m_enforce_valid_object (true),
     m_cplusplus (false),
     m_objectivec (false),
     m_static_method(false),
@@ -633,9 +633,7 @@ ClangUserExpression::Execute (Stream &error_stream,
             return eExecutionSetupError;
         
         lldb::addr_t function_stack_pointer = static_cast<ThreadPlanCallFunction *>(call_plan_sp.get())->GetFunctionStackPointer();
-    
-        call_plan_sp->SetPrivate(true);
-    
+
         if (log)
             log->Printf("-- [ClangUserExpression::Execute] Execution of expression begins --");
         
