@@ -831,7 +831,7 @@ ProcessInstanceInfoMatch::Matches (const ProcessInstanceInfo &proc_info) const
         return false;
     
     if (m_match_info.GetArchitecture().IsValid() && 
-        m_match_info.GetArchitecture() != proc_info.GetArchitecture())
+        !m_match_info.GetArchitecture().IsCompatibleMatch(proc_info.GetArchitecture()))
         return false;
     return true;
 }
@@ -2971,7 +2971,7 @@ Process::CompleteAttach ()
             ProcessInstanceInfo process_info;
             platform_sp->GetProcessInfo (GetID(), process_info);
             const ArchSpec &process_arch = process_info.GetArchitecture();
-            if (process_arch.IsValid() && m_target.GetArchitecture() != process_arch)
+            if (process_arch.IsValid() && !m_target.GetArchitecture().IsExactMatch(process_arch))
                 m_target.SetArchitecture (process_arch);
         }
     }
@@ -3792,7 +3792,11 @@ Process::ProcessEventData::DoOnRemoval (Event *event_ptr)
         for (idx = 0; idx < num_threads; ++idx)
             thread_index_array[idx] = curr_thread_list.GetThreadAtIndex(idx)->GetIndexID();
         
-        bool still_should_stop = true;
+        // Use this to track whether we should continue from here.  We will only continue the target running if
+        // no thread says we should stop.  Of course if some thread's PerformAction actually sets the target running,
+        // then it doesn't matter what the other threads say...
+        
+        bool still_should_stop = false;
         
         for (idx = 0; idx < num_threads; ++idx)
         {
@@ -3833,10 +3837,10 @@ Process::ProcessEventData::DoOnRemoval (Event *event_ptr)
                     SetRestarted (true);
                     break;
                 }
-                else if (!stop_info_sp->ShouldStop(event_ptr))
-                {
-                    still_should_stop = false;
-                }
+                
+                bool this_thread_wants_to_stop = stop_info_sp->ShouldStop(event_ptr);
+                if (still_should_stop == false)
+                    still_should_stop = this_thread_wants_to_stop;
             }
         }
 

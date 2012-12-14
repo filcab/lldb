@@ -66,7 +66,20 @@ Target::Target(Debugger &debugger, const ArchSpec &target_arch, const lldb::Plat
     m_platform_sp (platform_sp),
     m_mutex (Mutex::eMutexTypeRecursive), 
     m_arch (target_arch),
+#ifndef LLDB_DISABLE_PYTHON
     m_images (this),
+#else
+    // FIXME: The module added notification needed for python scripting support 
+    // causes a problem with in-memory-only Modules at startup if we have
+    // a breakpoint (the ObjectFile is parsed before we've set the Section load
+    // addresses leading to an invalid __LINKEDIT section addr on Mac OS X and
+    // all the problems that will happen from that).  
+    // As a temporary solution for iOS debugging (where all the modules are in-memory-only), 
+    // disable this notification system there. The problem could still happen on 
+    // an x86 system but it is much less common. 
+    // <rdar://problem/12831670> describes the failure mode for on-iOS debugging.
+    m_images (NULL),
+#endif
     m_section_load_list (),
     m_breakpoint_list (false),
     m_internal_breakpoint_list (true),
@@ -96,9 +109,7 @@ Target::Target(Debugger &debugger, const ArchSpec &target_arch, const lldb::Plat
         log->Printf ("%p Target::Target()", this);
     if (m_arch.IsValid())
     {
-        LogSP log_target(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TARGET));
-        if (log_target)
-            log_target->Printf("Target::Target created with architecture %s (%s)", m_arch.GetArchitectureName(), m_arch.GetTriple().getTriple().c_str());
+        LogIfAnyCategoriesSet(LIBLLDB_LOG_TARGET, "Target::Target created with architecture %s (%s)", m_arch.GetArchitectureName(), m_arch.GetTriple().getTriple().c_str());
     }
 }
 
@@ -1043,7 +1054,7 @@ bool
 Target::SetArchitecture (const ArchSpec &arch_spec)
 {
     LogSP log(lldb_private::GetLogIfAllCategoriesSet (LIBLLDB_LOG_TARGET));
-    if (m_arch == arch_spec || !m_arch.IsValid())
+    if (m_arch.IsCompatibleMatch(arch_spec) || !m_arch.IsValid())
     {
         // If we haven't got a valid arch spec, or the architectures are
         // compatible, so just update the architecture. Architectures can be
@@ -1672,7 +1683,10 @@ Target::SetDefaultArchitecture (const ArchSpec &arch)
 {
     TargetPropertiesSP properties_sp(Target::GetGlobalProperties());
     if (properties_sp)
+    {
+        LogIfAnyCategoriesSet(LIBLLDB_LOG_TARGET, "Target::SetDefaultArchitecture setting target's default architecture to  %s (%s)", arch.GetArchitectureName(), arch.GetTriple().getTriple().c_str());
         return properties_sp->SetDefaultArchitecture(arch);
+    }
 }
 
 Target *

@@ -768,7 +768,7 @@ Module::FindTypes (const SymbolContext& sc,
 //}
 
 SymbolVendor*
-Module::GetSymbolVendor (bool can_create)
+Module::GetSymbolVendor (bool can_create, lldb_private::Stream *feedback_strm)
 {
     Mutex::Locker locker (m_mutex);
     if (m_did_load_symbol_vendor == false && can_create)
@@ -777,7 +777,7 @@ Module::GetSymbolVendor (bool can_create)
         if (obj_file != NULL)
         {
             Timer scoped_timer(__PRETTY_FUNCTION__, __PRETTY_FUNCTION__);
-            m_symfile_ap.reset(SymbolVendor::FindPlugin(shared_from_this()));
+            m_symfile_ap.reset(SymbolVendor::FindPlugin(shared_from_this(), feedback_strm));
             m_did_load_symbol_vendor = true;
         }
     }
@@ -1202,7 +1202,7 @@ Module::SetArchitecture (const ArchSpec &new_arch)
         m_arch = new_arch;
         return true;
     }    
-    return m_arch == new_arch;
+    return m_arch.IsExactMatch(new_arch);
 }
 
 bool 
@@ -1268,7 +1268,7 @@ Module::MatchesModuleSpec (const ModuleSpec &module_ref)
     const ArchSpec &arch = module_ref.GetArchitecture();
     if (arch.IsValid())
     {
-        if (m_arch != arch)
+        if (!m_arch.IsCompatibleMatch(arch))
             return false;
     }
     

@@ -564,7 +564,7 @@ ObjectFileMachO::ParseHeader ()
             
             // Check if the module has a required architecture
             const ArchSpec &module_arch = module_sp->GetArchitecture();
-            if (module_arch.IsValid() && !module_arch.IsExactMatch(mach_arch))
+            if (module_arch.IsValid() && !module_arch.IsCompatibleMatch(mach_arch))
                 return false;
 
             if (SetModulesArchitecture (mach_arch))
@@ -1326,7 +1326,7 @@ ObjectFileMachO::ParseSymtab (bool minimize)
                     // data across can slow down debug launch times, so we optimize this by
                     // reading the memory for the __LINKEDIT section from this process.
                     PlatformSP platform_sp (target.GetPlatform());
-                    if (platform_sp && platform_sp->IsHost() && linkedit_load_addr != LLDB_INVALID_ADDRESS)
+                    if (platform_sp && platform_sp->IsHost())
                     {
                         data_was_read = true;
                         nlist_data.SetData((void *)symoff_addr, nlist_data_byte_size, eByteOrderLittle);

@@ -1774,6 +1774,7 @@ SymbolFileDWARF::ParseChildMembers
                     if (is_artificial == false)
                     {
                         Type *member_type = ResolveTypeUID(encoding_uid);
+                        
                         clang::FieldDecl *field_decl = NULL;
                         if (tag == DW_TAG_member)
                         {
@@ -1890,9 +1891,44 @@ SymbolFileDWARF::ParseChildMembers
                                     }
                                 }
                                 
+                                clang_type_t member_clang_type = member_type->GetClangLayoutType();
+                                
+                                {
+                                    // Older versions of clang emit array[0] and array[1] in the same way (<rdar://problem/12566646>).
+                                    // If the current field is at the end of the structure, then there is definitely no room for extra
+                                    // elements and we override the type to array[0].
+                                    
+                                    clang_type_t member_array_element_type;
+                                    uint64_t member_array_size;
+                                    bool member_array_is_incomplete;
+                                    
+                                    if (GetClangASTContext().IsArrayType(member_clang_type,
+                                                                         &member_array_element_type,
+                                                                         &member_array_size,
+                                                                         &member_array_is_incomplete) &&
+                                        !member_array_is_incomplete)
+                                    {
+                                        uint64_t parent_byte_size = parent_die->GetAttributeValueAsUnsigned(this, dwarf_cu, DW_AT_byte_size, UINT64_MAX);
+                                    
+                                        if (member_byte_offset >= parent_byte_size)
+                                        {
+                                            if (member_array_size != 1)
+                                            {
+                                                GetObjectFile()->GetModule()->ReportError ("0x%8.8" PRIx64 ": DW_TAG_member '%s' refers to type 0x%8.8" PRIx64 " which extends beyond the bounds of 0x%8.8" PRIx64,
+                                                                                           MakeUserID(die->GetOffset()),
+                                                                                           name,
+                                                                                           encoding_uid,
+                                                                                           MakeUserID(parent_die->GetOffset()));
+                                            }
+                                            
+                                            member_clang_type = GetClangASTContext().CreateArrayType(member_array_element_type, 0);
+                                        }
+                                    }
+                                }
+                                
                                 field_decl = GetClangASTContext().AddFieldToRecordType (class_clang_type,
                                                                                         name, 
-                                                                                        member_type->GetClangLayoutType(), 
+                                                                                        member_clang_type,
                                                                                         accessibility, 
                                                                                         bit_size);
                                 
@@ -2566,27 +2602,7 @@ SymbolFileDWARF::ResolveSymbolContext (const Address& so_addr, uint32_t resolve_
                     {
                         resolved |= eSymbolContextCompUnit;
 
-                        if (resolve_scope & eSymbolContextLineEntry)
-                        {
-                            LineTable *line_table = sc.comp_unit->GetLineTable();
-                            if (line_table != NULL)
-                            {
-                                if (so_addr.IsLinkedAddress())
-                                {
-                                    Address linked_addr (so_addr);
-                                    linked_addr.ResolveLinkedAddress();
-                                    if (line_table->FindLineEntryByAddress (linked_addr, sc.line_entry))
-                                    {
-                                        resolved |= eSymbolContextLineEntry;
-                                    }
-                                }
-                                else if (line_table->FindLineEntryByAddress (so_addr, sc.line_entry))
-                                {
-                                    resolved |= eSymbolContextLineEntry;
-                                }
-                            }
-                        }
-
+                        bool force_check_line_table = false;
                         if (resolve_scope & (eSymbolContextFunction | eSymbolContextBlock))
                         {
                             DWARFDebugInfoEntry *function_die = NULL;
@@ -2614,8 +2630,7 @@ SymbolFileDWARF::ResolveSymbolContext (const Address& so_addr, uint32_t resolve_
                                 // should only happen when there aren't other functions from
                                 // other compile units in these gaps. This helps keep the size
                                 // of the aranges down.
-                                sc.comp_unit = NULL;
-                                resolved &= ~eSymbolContextCompUnit;
+                                force_check_line_table = true;
                             }
 
                             if (sc.function != NULL)
@@ -2634,6 +2649,39 @@ SymbolFileDWARF::ResolveSymbolContext (const Address& so_addr, uint32_t resolve_
                                         resolved |= eSymbolContextBlock;
                                 }
                             }
+                        }
+                        
+                        if ((resolve_scope & eSymbolContextLineEntry) || force_check_line_table)
+                        {
+                            LineTable *line_table = sc.comp_unit->GetLineTable();
+                            if (line_table != NULL)
+                            {
+                                if (so_addr.IsLinkedAddress())
+                                {
+                                    Address linked_addr (so_addr);
+                                    linked_addr.ResolveLinkedAddress();
+                                    if (line_table->FindLineEntryByAddress (linked_addr, sc.line_entry))
+                                    {
+                                        resolved |= eSymbolContextLineEntry;
+                                    }
+                                }
+                                else if (line_table->FindLineEntryByAddress (so_addr, sc.line_entry))
+                                {
+                                    resolved |= eSymbolContextLineEntry;
+                                }
+                            }
+                        }
+                        
+                        if (force_check_line_table && !(resolved & eSymbolContextLineEntry))
+                        {
+                            // We might have had a compile unit that had discontiguous
+                            // address ranges where the gaps are symbols that don't have
+                            // any debug info. Discontiguous compile unit address ranges
+                            // should only happen when there aren't other functions from
+                            // other compile units in these gaps. This helps keep the size
+                            // of the aranges down.
+                            sc.comp_unit = NULL;
+                            resolved &= ~eSymbolContextCompUnit;
                         }
                     }
                     else
@@ -5255,7 +5303,6 @@ SymbolFileDWARF::CopyUniqueClassMethodTypes (Type *class_type,
             {
                 // Erase this entry from the map
                 const size_t num_removed = dst_name_to_die_artificial.Erase (src_name_artificial);
-                assert (num_removed == 0 || num_removed == 1); // REMOVE THIS
                 // Both classes have the artificial types, link them
                 clang::DeclContext *src_decl_ctx = m_die_to_decl_ctx[src_die];
                 if (src_decl_ctx)
