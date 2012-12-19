@@ -1054,7 +1054,7 @@ protected:
                                                               comp_unit->GetDirectory().GetCString(), 
                                                               comp_unit->GetFilename().GetCString());
                             else
-                                result.AppendError ("no debug information for frame %u\n", frame->GetFrameIndex());
+                                result.AppendErrorWithFormat ("no debug information for frame %u\n", frame->GetFrameIndex());
                         }                        
                         else
                             result.AppendError ("'target variable' takes one or more global variable names as arguments\n");
@@ -3330,13 +3330,13 @@ protected:
                         }
                         else
                         {
-                            result.AppendError ("Couldn't find module matching address: 0x%" PRIx64 ".", m_options.m_module_addr);
+                            result.AppendErrorWithFormat ("Couldn't find module matching address: 0x%" PRIx64 ".", m_options.m_module_addr);
                             result.SetStatus (eReturnStatusFailed);
                         }
                     }
                     else
                     {
-                        result.AppendError ("Couldn't find module containing address: 0x%" PRIx64 ".", m_options.m_module_addr);
+                        result.AppendErrorWithFormat ("Couldn't find module containing address: 0x%" PRIx64 ".", m_options.m_module_addr);
                         result.SetStatus (eReturnStatusFailed);
                     }
                 }
