@@ -126,6 +126,8 @@ public:
             ASTDumper dumper((clang::Decl*)interface_decl);
             dumper.ToLog(log, "    [CT] ");
         }
+        
+        m_type_vendor.FinishDecl(interface_decl);
                 
         if (log)
         {
@@ -197,6 +199,7 @@ AppleObjCTypeVendor::GetDeclForISA(ObjCLanguageRuntime::ObjCISA isa)
     m_external_source->SetMetadata((uintptr_t)new_iface_decl, meta_data);
     
     new_iface_decl->setHasExternalVisibleStorage();
+    new_iface_decl->setHasExternalLexicalStorage();
     
     ast_ctx->getTranslationUnitDecl()->addDecl(new_iface_decl);
     
@@ -508,6 +511,7 @@ AppleObjCTypeVendor::FinishDecl(clang::ObjCInterfaceDecl *interface_decl)
     interface_decl->startDefinition();
     
     interface_decl->setHasExternalVisibleStorage(false);
+    interface_decl->setHasExternalLexicalStorage(false);
     
     ObjCLanguageRuntime::ClassDescriptorSP descriptor = m_runtime.GetClassDescriptor(objc_isa);
     
@@ -612,9 +616,9 @@ AppleObjCTypeVendor::FindTypes (const ConstString &name,
         
         clang::DeclContext::lookup_const_result lookup_result = ast_ctx->getTranslationUnitDecl()->lookup(decl_name);
         
-        if (lookup_result.first != lookup_result.second)
+        if (!lookup_result.empty())
         {
-            if (const clang::ObjCInterfaceDecl *result_iface_decl = llvm::dyn_cast<clang::ObjCInterfaceDecl>(*lookup_result.first))
+            if (const clang::ObjCInterfaceDecl *result_iface_decl = llvm::dyn_cast<clang::ObjCInterfaceDecl>(lookup_result[0]))
             {
                 clang::QualType result_iface_type = ast_ctx->getObjCInterfaceType(result_iface_decl);
                 

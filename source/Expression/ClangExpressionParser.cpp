@@ -63,8 +63,8 @@
 #else
 #include "llvm/ExecutionEngine/MCJIT.h"
 #endif
-#include "llvm/LLVMContext.h"
-#include "llvm/Module.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/DynamicLibrary.h"
@@ -265,14 +265,14 @@ ClangExpressionParser::ClangExpressionParser (ExecutionContextScope *exe_scope,
         break;
     case lldb::eLanguageTypeC_plus_plus:
         m_compiler->getLangOpts().CPlusPlus = true;
-        m_compiler->getLangOpts().CPlusPlus0x = true;
+        m_compiler->getLangOpts().CPlusPlus11 = true;
         break;
     case lldb::eLanguageTypeObjC_plus_plus:
     default:
         m_compiler->getLangOpts().ObjC1 = true;
         m_compiler->getLangOpts().ObjC2 = true;
         m_compiler->getLangOpts().CPlusPlus = true;
-        m_compiler->getLangOpts().CPlusPlus0x = true;
+        m_compiler->getLangOpts().CPlusPlus11 = true;
         break;
     }
     

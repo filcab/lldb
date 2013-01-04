@@ -15,12 +15,12 @@
 #include "lldb/Expression/IRForTarget.h"
 #include "lldb/Expression/IRInterpreter.h"
 
-#include "llvm/Constants.h"
-#include "llvm/Function.h"
-#include "llvm/Instructions.h"
-#include "llvm/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/raw_ostream.h"
-#include "llvm/DataLayout.h"
+#include "llvm/IR/DataLayout.h"
 
 #include <map>
 
@@ -1048,9 +1048,11 @@ IRInterpreter::supportsFunction (Function &llvm_function,
             case Instruction::Mul:
             case Instruction::Ret:
             case Instruction::SDiv:
+            case Instruction::SRem:
             case Instruction::Store:
             case Instruction::Sub:
             case Instruction::UDiv:
+            case Instruction::URem:
             case Instruction::ZExt:
                 break;
             }
@@ -1135,6 +1137,8 @@ IRInterpreter::runOnFunction (lldb::ClangExpressionVariableSP &result,
         case Instruction::Mul:
         case Instruction::SDiv:
         case Instruction::UDiv:
+        case Instruction::SRem:
+        case Instruction::URem:
             {
                 const BinaryOperator *bin_op = dyn_cast<BinaryOperator>(inst);
                 
@@ -1191,6 +1195,12 @@ IRInterpreter::runOnFunction (lldb::ClangExpressionVariableSP &result,
                     break;
                 case Instruction::UDiv:
                     result = L.GetRawBits64(0) / R.GetRawBits64(1);
+                    break;
+                case Instruction::SRem:
+                    result = L % R;
+                    break;
+                case Instruction::URem:
+                    result = L.GetRawBits64(0) % R.GetRawBits64(1);
                     break;
                 }
                                 
